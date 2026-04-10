@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 
 class GroceryScreen extends StatefulWidget {
@@ -9,39 +10,55 @@ class GroceryScreen extends StatefulWidget {
 }
 
 class _GroceryScreenState extends State<GroceryScreen> {
-  // Mock grocery categories
+  final TextEditingController _addController = TextEditingController();
+  final FocusNode _addFocus = FocusNode();
+  bool _showAddField = false;
+  String _selectedCategory = 'Other';
+
   final List<Map<String, dynamic>> _categories = [
     {
       'name': 'Produce',
       'icon': Icons.eco_rounded,
       'color': const Color(0xFF4CAF50),
-      'items': <Map<String, dynamic>>[],
     },
     {
       'name': 'Protein',
       'icon': Icons.set_meal_rounded,
       'color': const Color(0xFFE57373),
-      'items': <Map<String, dynamic>>[],
     },
     {
       'name': 'Dairy',
       'icon': Icons.water_drop_rounded,
       'color': const Color(0xFF64B5F6),
-      'items': <Map<String, dynamic>>[],
     },
     {
       'name': 'Pantry',
       'icon': Icons.kitchen_rounded,
       'color': const Color(0xFFFFB74D),
-      'items': <Map<String, dynamic>>[],
     },
     {
       'name': 'Other',
       'icon': Icons.shopping_basket_rounded,
       'color': const Color(0xFF9575CD),
-      'items': <Map<String, dynamic>>[],
     },
   ];
+
+  // Grocery items: [{name, category, checked, quantity}]
+  final List<Map<String, dynamic>> _items = [];
+
+  List<Map<String, dynamic>> _itemsFor(String category) {
+    return _items.where((i) => i['category'] == category).toList();
+  }
+
+  int get _totalItems => _items.length;
+  int get _checkedItems => _items.where((i) => i['checked'] == true).length;
+
+  @override
+  void dispose() {
+    _addController.dispose();
+    _addFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,20 +68,35 @@ class _GroceryScreenState extends State<GroceryScreen> {
         children: [
           _buildHeader(context),
           Expanded(
-            child: _buildContent(),
+            child: _items.isEmpty && !_showAddField
+                ? _buildEmptyState()
+                : _buildGroceryList(),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() => _showAddField = true);
+          Future.delayed(const Duration(milliseconds: 100), () {
+            _addFocus.requestFocus();
+          });
+          HapticFeedback.lightImpact();
+        },
+        backgroundColor: AppColors.primary,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      decoration: GlassDecoration.header(),
+      color: AppColors.background,
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 12, 20),
+          padding: const EdgeInsets.fromLTRB(20, 12, 12, 16),
           child: Row(
             children: [
               Column(
@@ -73,57 +105,76 @@ class _GroceryScreenState extends State<GroceryScreen> {
                   const Text(
                     'Groceries',
                     style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
                       letterSpacing: -0.5,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    'Your shopping list',
+                    _totalItems == 0
+                        ? 'Your shopping list'
+                        : '$_checkedItems of $_totalItems items',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
               ),
               const Spacer(),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.settings_rounded,
+              if (_items.isNotEmpty)
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.borderLight),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    onPressed: () => _showClearOptions(),
+                    icon: const Icon(
+                      Icons.more_horiz_rounded,
+                      color: AppColors.textSecondary,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 6),
+              Container(
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  size: 24,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderLight),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  onPressed: () {},
+                  icon: const Icon(
+                    Icons.settings_rounded,
+                    color: AppColors.textSecondary,
+                    size: 22,
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildContent() {
-    final hasItems = _categories.any(
-      (c) => (c['items'] as List).isNotEmpty,
-    );
-
-    if (!hasItems) {
-      return _buildEmptyState();
-    }
-
-    return ListView.builder(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(20),
-      itemCount: _categories.length,
-      itemBuilder: (context, index) {
-        final category = _categories[index];
-        final items = category['items'] as List<Map<String, dynamic>>;
-        if (items.isEmpty) return const SizedBox.shrink();
-        return _buildCategorySection(category);
-      },
     );
   }
 
@@ -158,7 +209,7 @@ class _GroceryScreenState extends State<GroceryScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Plan your meals and your grocery\nlist will auto-generate here',
+              'Tap + to add items or plan your\nmeals to auto-generate',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -167,19 +218,16 @@ class _GroceryScreenState extends State<GroceryScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            // Generate from plan button
             Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
+                  HapticFeedback.mediumImpact();
                   // TODO: Generate from meal plan
                 },
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
@@ -196,11 +244,7 @@ class _GroceryScreenState extends State<GroceryScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
+                      Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
                       SizedBox(width: 8),
                       Text(
                         'Generate from meal plan',
@@ -215,19 +259,221 @@ class _GroceryScreenState extends State<GroceryScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            // Add manually
-            TextButton(
-              onPressed: () {
-                // TODO: Add item manually
-              },
-              child: Text(
-                'or add items manually',
-                style: TextStyle(
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroceryList() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+      child: Column(
+        children: [
+          // Add item field
+          if (_showAddField) _buildAddItemField(),
+          // Progress bar
+          if (_totalItems > 0) ...[
+            _buildProgressBar(),
+            const SizedBox(height: 16),
+          ],
+          // Category sections
+          ..._categories.map((cat) {
+            final items = _itemsFor(cat['name'] as String);
+            if (items.isEmpty) return const SizedBox.shrink();
+            return _buildCategorySection(cat, items);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    final progress = _totalItems > 0 ? _checkedItems / _totalItems : 0.0;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                '$_checkedItems of $_totalItems items',
+                style: const TextStyle(
                   fontSize: 13,
-                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
               ),
+              const Spacer(),
+              Text(
+                '${(progress * 100).toInt()}%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              child: LinearProgressIndicator(
+                value: progress,
+                backgroundColor: AppColors.borderLight,
+                valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                minHeight: 6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddItemField() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _addController,
+              focusNode: _addFocus,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'Add an item...',
+                hintStyle: TextStyle(color: AppColors.textHint),
+                prefixIcon: const Icon(Icons.add_rounded, color: AppColors.primary),
+                filled: true,
+                fillColor: AppColors.background,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onSubmitted: (value) => _addItem(),
+            ),
+            const SizedBox(height: 12),
+            // Category chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _categories.map((cat) {
+                  final name = cat['name'] as String;
+                  final color = cat['color'] as Color;
+                  final isSelected = _selectedCategory == name;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedCategory = name),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: isSelected ? color.withValues(alpha: 0.15) : AppColors.background,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected ? color.withValues(alpha: 0.4) : AppColors.borderLight,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(cat['icon'] as IconData, size: 14, color: isSelected ? color : AppColors.textHint),
+                            const SizedBox(width: 5),
+                            Text(
+                              name,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                color: isSelected ? color : AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: ElevatedButton(
+                      onPressed: _addItem,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Add',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 44,
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _showAddField = false;
+                        _addController.clear();
+                      });
+                    },
+                    child: Text(
+                      'Done',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -235,12 +481,26 @@ class _GroceryScreenState extends State<GroceryScreen> {
     );
   }
 
-  Widget _buildCategorySection(Map<String, dynamic> category) {
-    final items = category['items'] as List<Map<String, dynamic>>;
+  void _addItem() {
+    final text = _addController.text.trim();
+    if (text.isEmpty) return;
+    setState(() {
+      _items.add({
+        'name': text,
+        'category': _selectedCategory,
+        'checked': false,
+      });
+      _addController.clear();
+    });
+    _addFocus.requestFocus();
+    HapticFeedback.lightImpact();
+  }
+
+  Widget _buildCategorySection(Map<String, dynamic> category, List<Map<String, dynamic>> items) {
     final color = category['color'] as Color;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -268,11 +528,7 @@ class _GroceryScreenState extends State<GroceryScreen> {
                       color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      category['icon'] as IconData,
-                      color: color,
-                      size: 18,
-                    ),
+                    child: Icon(category['icon'] as IconData, color: color, size: 18),
                   ),
                   const SizedBox(width: 10),
                   Text(
@@ -285,10 +541,11 @@ class _GroceryScreenState extends State<GroceryScreen> {
                   ),
                   const Spacer(),
                   Text(
-                    '${items.length} items',
-                    style: const TextStyle(
+                    '${items.length}',
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textHint,
+                      fontWeight: FontWeight.w600,
+                      color: color,
                     ),
                   ),
                 ],
@@ -305,51 +562,148 @@ class _GroceryScreenState extends State<GroceryScreen> {
 
   Widget _buildGroceryItem(Map<String, dynamic> item) {
     final checked = item['checked'] as bool? ?? false;
-    return InkWell(
-      onTap: () {
-        setState(() {
-          item['checked'] = !checked;
-        });
+    return Dismissible(
+      key: Key('grocery_${item['name']}_${item.hashCode}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) {
+        final index = _items.indexOf(item);
+        setState(() => _items.remove(item));
+        HapticFeedback.lightImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${item['name']} removed'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () {
+                setState(() => _items.insert(index, item));
+              },
+            ),
+          ),
+        );
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: checked ? AppColors.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: checked ? AppColors.primary : AppColors.border,
-                  width: 1.5,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(0),
+        ),
+        child: const Icon(Icons.delete_rounded, color: AppColors.error, size: 20),
+      ),
+      child: InkWell(
+        onTap: () {
+          setState(() => item['checked'] = !checked);
+          HapticFeedback.selectionClick();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: checked ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: checked ? AppColors.primary : AppColors.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: checked
+                    ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: checked ? AppColors.textHint : AppColors.textPrimary,
+                    decoration: checked ? TextDecoration.lineThrough : TextDecoration.none,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  child: Text(item['name'] as String),
                 ),
               ),
-              child: checked
-                  ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                item['name'] as String,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: checked ? AppColors.textHint : AppColors.textPrimary,
-                  decoration: checked ? TextDecoration.lineThrough : null,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showClearOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.borderLight,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ),
-            if (item['quantity'] != null)
-              Text(
-                item['quantity'] as String,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
+              const SizedBox(height: 20),
+              ListTile(
+                onTap: () {
+                  setState(() => _items.removeWhere((i) => i['checked'] == true));
+                  Navigator.pop(context);
+                  HapticFeedback.lightImpact();
+                },
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
                 ),
+                title: const Text(
+                  'Clear checked items',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-          ],
+              ListTile(
+                onTap: () {
+                  setState(() => _items.clear());
+                  Navigator.pop(context);
+                  HapticFeedback.mediumImpact();
+                },
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.delete_sweep_rounded, color: AppColors.error, size: 20),
+                ),
+                title: const Text(
+                  'Clear all items',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.error),
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ],
+          ),
         ),
       ),
     );
