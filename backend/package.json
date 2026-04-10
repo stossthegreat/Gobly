@@ -1,0 +1,26 @@
+{
+  "name": "recimo-backend",
+  "version": "0.1.0",
+  "description": "Recimo AI recipe agent — web search, JSON-LD extraction, GPT-4o mini ranking",
+  "main": "dist/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "fastify": "^5.1.0",
+    "openai": "^4.73.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

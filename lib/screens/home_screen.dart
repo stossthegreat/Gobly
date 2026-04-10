@@ -6,6 +6,7 @@ import '../services/user_profile_service.dart';
 import '../services/saved_recipes_service.dart';
 import 'settings_screen.dart';
 import 'create_recipe_screen.dart';
+import 'search_results_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -604,7 +605,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           onSubmitted: (value) {
                             if (value.trim().isNotEmpty) {
-                              _showSearchingSheet(value.trim());
+                              _runAgentSearch(value.trim());
+                              _searchController.clear();
                             }
                           },
                         ),
@@ -850,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onSubmitted: (value) {
                   if (value.trim().isNotEmpty) {
                     Navigator.pop(context);
-                    _showSearchingSheet(value.trim());
+                    _runAgentSearch(value.trim());
                   }
                 },
               ),
@@ -862,7 +864,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () {
                     if (controller.text.trim().isNotEmpty) {
                       Navigator.pop(context);
-                      _showSearchingSheet(controller.text.trim());
+                      _runAgentSearch(controller.text.trim());
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -886,6 +888,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _runAgentSearch(String query) {
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => SearchResultsScreen(query: query),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.05),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Kept for graceful fallback if needed — not currently used
+  // ignore: unused_element
   void _showSearchingSheet(String query) {
     showModalBottomSheet(
       context: context,
