@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import 'settings_screen.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -142,7 +143,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   ],
                 ),
                 child: IconButton(
-                  onPressed: () {},
+                  onPressed: () => _openSettings(context),
                   icon: const Icon(
                     Icons.settings_rounded,
                     color: AppColors.textSecondary,
@@ -153,6 +154,26 @@ class _PlannerScreenState extends State<PlannerScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _openSettings(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const SettingsScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
       ),
     );
   }

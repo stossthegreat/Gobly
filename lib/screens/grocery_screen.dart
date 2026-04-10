@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import 'settings_screen.dart';
 
 class GroceryScreen extends StatefulWidget {
   const GroceryScreen({super.key});
@@ -163,7 +164,7 @@ class _GroceryScreenState extends State<GroceryScreen> {
                   ],
                 ),
                 child: IconButton(
-                  onPressed: () {},
+                  onPressed: () => _openSettings(context),
                   icon: const Icon(
                     Icons.settings_rounded,
                     color: AppColors.textSecondary,
@@ -174,6 +175,26 @@ class _GroceryScreenState extends State<GroceryScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _openSettings(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const SettingsScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
       ),
     );
   }

@@ -4,8 +4,9 @@ import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/planner_screen.dart';
 import 'screens/grocery_screen.dart';
+import 'services/user_profile_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -13,6 +14,8 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+  // Load user profile before app starts so agent has context immediately
+  await UserProfileService.instance.load();
   runApp(const RecimoApp());
 }
 
