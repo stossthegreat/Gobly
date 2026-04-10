@@ -5,6 +5,8 @@ import 'screens/home_screen.dart';
 import 'screens/planner_screen.dart';
 import 'screens/grocery_screen.dart';
 import 'services/user_profile_service.dart';
+import 'services/meal_plan_service.dart';
+import 'services/saved_recipes_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,8 +16,12 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  // Load user profile before app starts so agent has context immediately
-  await UserProfileService.instance.load();
+  // Load all services before the app starts so no screens flash empty
+  await Future.wait([
+    UserProfileService.instance.load(),
+    MealPlanService.instance.load(),
+    SavedRecipesService.instance.load(),
+  ]);
   runApp(const RecimoApp());
 }
 
@@ -52,18 +58,16 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: _screens[_currentIndex],
+      // IndexedStack keeps every tab's state alive when switching
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border(
-            top: BorderSide(
-              color: AppColors.borderLight,
-              width: 1,
-            ),
+            top: BorderSide(color: AppColors.borderLight, width: 1),
           ),
         ),
         child: SafeArea(
@@ -91,7 +95,10 @@ class _AppShellState extends State<AppShell> {
   ) {
     final isActive = _currentIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        setState(() => _currentIndex = index);
+        HapticFeedback.selectionClick();
+      },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

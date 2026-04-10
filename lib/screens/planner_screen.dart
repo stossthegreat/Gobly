@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../services/meal_plan_service.dart';
 import 'settings_screen.dart';
 
 class PlannerScreen extends StatefulWidget {
@@ -33,45 +34,41 @@ class _PlannerScreenState extends State<PlannerScreen> {
     const Color(0xFF7986CB),
   ];
 
-  // Planned meals: key = "Mon_Breakfast", value = meal name
-  final Map<String, String> _plannedMeals = {};
-
-  int _getMealCount() => _plannedMeals.length;
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _buildHeader(context),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  // Stats bar
-                  _buildStatsBar(),
-                  const SizedBox(height: 16),
-                  // AI Planner button
-                  _buildAiPlannerButton(),
-                  const SizedBox(height: 20),
-                  // Day cards
-                  ..._days.asMap().entries.map((entry) {
-                    return _buildDayCard(entry.key, entry.value);
-                  }),
-                  const SizedBox(height: 100),
-                ],
+    return ListenableBuilder(
+      listenable: MealPlanService.instance,
+      builder: (context, _) {
+        final hasAnyMeals = MealPlanService.instance.count > 0;
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: Column(
+            children: [
+              _buildHeader(context, hasAnyMeals),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildAiPlannerButton(),
+                      const SizedBox(height: 20),
+                      ..._days.asMap().entries.map((entry) {
+                        return _buildDayCard(entry.key, entry.value);
+                      }),
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, bool hasAnyMeals) {
     return Container(
       color: AppColors.background,
       child: SafeArea(
@@ -104,8 +101,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 ],
               ),
               const Spacer(),
-              // Clear all button
-              if (_plannedMeals.isNotEmpty)
+              if (hasAnyMeals)
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -120,7 +116,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     ],
                   ),
                   child: IconButton(
-                    onPressed: () => _showClearConfirmation(),
+                    onPressed: _showClearConfirmation,
                     icon: const Icon(
                       Icons.delete_sweep_rounded,
                       color: AppColors.textSecondary,
@@ -178,77 +174,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
-  Widget _buildStatsBar() {
-    final count = _getMealCount();
-    final total = 21;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.borderLight),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  '$count',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$count of $total meals planned',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: count / total,
-                      backgroundColor: AppColors.borderLight,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-                      minHeight: 5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildAiPlannerButton() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -267,7 +192,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF43A047)],
+                colors: [
+                  Color(0xFF2E7D32),
+                  Color(0xFF388E3C),
+                  Color(0xFF43A047),
+                ],
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
@@ -332,17 +261,17 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   Widget _buildDayCard(int index, String day) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.borderLight, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -351,21 +280,21 @@ class _PlannerScreenState extends State<PlannerScreen> {
           children: [
             // Day header
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
               child: Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: AppColors.primarySoft,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
                       child: Text(
                         day,
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: AppColors.primary,
                         ),
@@ -376,29 +305,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   Text(
                     _fullDays[index],
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const Spacer(),
-                  // Filled indicator dots
-                  ...List.generate(3, (mi) {
-                    final key = '${day}_${_mealTypes[mi]}';
-                    final filled = _plannedMeals.containsKey(key);
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: filled ? _mealColors[mi] : AppColors.borderLight,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    );
-                  }),
                 ],
               ),
             ),
@@ -406,13 +317,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
             // Meal slots
             ...List.generate(3, (mealIndex) {
               final mealKey = '${day}_${_mealTypes[mealIndex]}';
-              final mealName = _plannedMeals[mealKey];
+              final mealName = MealPlanService.instance.get(mealKey);
+              final isLast = mealIndex == 2;
               return _buildMealSlot(
                 mealKey,
                 _mealTypes[mealIndex],
                 _mealIcons[mealIndex],
                 _mealColors[mealIndex],
                 mealName,
+                isLast,
               );
             }),
           ],
@@ -427,6 +340,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     IconData icon,
     Color color,
     String? recipeName,
+    bool isLast,
   ) {
     final isEmpty = recipeName == null;
     return InkWell(
@@ -437,71 +351,85 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _showMealOptions(mealKey, mealType, recipeName);
         }
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      borderRadius: isLast
+          ? const BorderRadius.vertical(bottom: Radius.circular(20))
+          : BorderRadius.zero,
+      child: Container(
+        decoration: BoxDecoration(
+          border: !isLast
+              ? const Border(
+                  bottom: BorderSide(
+                    color: AppColors.borderLight,
+                    width: 1,
+                  ),
+                )
+              : null,
+        ),
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 28,
-              height: 28,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(icon, size: 15, color: color),
+              child: Icon(icon, size: 17, color: color),
             ),
             const SizedBox(width: 12),
-            Text(
-              mealType,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const Spacer(),
-            if (isEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded, size: 14, color: AppColors.primary),
-                    const SizedBox(width: 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Meal type label
+                  Text(
+                    mealType,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Meal name below the label
+                  if (isEmpty)
                     Text(
-                      'Add',
+                      'Tap to add',
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.textHint,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    )
+                  else
+                    Text(
+                      recipeName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                        height: 1.3,
                       ),
                     ),
-                  ],
-                ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            if (isEmpty)
+              Icon(
+                Icons.add_circle_outline_rounded,
+                size: 20,
+                color: AppColors.textHint,
               )
             else
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    recipeName,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+              Icon(
+                Icons.more_vert_rounded,
+                size: 18,
+                color: AppColors.textHint,
               ),
           ],
         ),
@@ -561,7 +489,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 decoration: InputDecoration(
                   hintText: 'e.g. "Grilled chicken salad"',
                   hintStyle: TextStyle(color: AppColors.textHint),
-                  prefixIcon: const Icon(Icons.restaurant_rounded, color: AppColors.primary),
+                  prefixIcon: const Icon(
+                    Icons.restaurant_rounded,
+                    color: AppColors.primary,
+                  ),
                   filled: true,
                   fillColor: AppColors.background,
                   border: OutlineInputBorder(
@@ -577,9 +508,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                   ),
                 ),
-                onSubmitted: (value) {
+                onSubmitted: (value) async {
                   if (value.trim().isNotEmpty) {
-                    setState(() => _plannedMeals[mealKey] = value.trim());
+                    await MealPlanService.instance.setMeal(mealKey, value.trim());
+                    if (!context.mounted) return;
                     Navigator.pop(context);
                     HapticFeedback.lightImpact();
                   }
@@ -590,9 +522,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (controller.text.trim().isNotEmpty) {
-                      setState(() => _plannedMeals[mealKey] = controller.text.trim());
+                      await MealPlanService.instance
+                          .setMeal(mealKey, controller.text.trim());
+                      if (!context.mounted) return;
                       Navigator.pop(context);
                       HapticFeedback.lightImpact();
                     }
@@ -648,6 +582,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
               Text(
@@ -655,7 +590,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
-              // Edit
               _buildOptionTile(
                 Icons.edit_rounded,
                 'Edit meal',
@@ -664,13 +598,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   _showAddMealSheet(mealKey, mealType);
                 },
               ),
-              // Remove
               _buildOptionTile(
                 Icons.delete_rounded,
                 'Remove meal',
                 color: AppColors.error,
-                onTap: () {
-                  setState(() => _plannedMeals.remove(mealKey));
+                onTap: () async {
+                  await MealPlanService.instance.removeMeal(mealKey);
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   HapticFeedback.lightImpact();
                 },
@@ -682,7 +616,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
-  Widget _buildOptionTile(IconData icon, String label, {VoidCallback? onTap, Color? color}) {
+  Widget _buildOptionTile(
+    IconData icon,
+    String label, {
+    VoidCallback? onTap,
+    Color? color,
+  }) {
     final c = color ?? AppColors.textPrimary;
     return ListTile(
       onTap: onTap,
@@ -703,7 +642,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
           color: c,
         ),
       ),
-      trailing: Icon(Icons.chevron_right_rounded, color: AppColors.textHint, size: 20),
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        color: AppColors.textHint,
+        size: 20,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
@@ -721,8 +664,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
             child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
-            onPressed: () {
-              setState(() => _plannedMeals.clear());
+            onPressed: () async {
+              await MealPlanService.instance.clear();
+              if (!context.mounted) return;
               Navigator.pop(context);
               HapticFeedback.mediumImpact();
             },

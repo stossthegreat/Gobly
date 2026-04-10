@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/recipe_card.dart';
 import '../services/user_profile_service.dart';
+import '../services/saved_recipes_service.dart';
 import 'settings_screen.dart';
+import 'create_recipe_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,54 +14,51 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
-
-  // Saved recipes
-  final List<Map<String, dynamic>> _savedRecipes = [];
 
   // Mock trending data
   final List<Map<String, dynamic>> _trendingRecipes = [
     {
       'title': 'Creamy Garlic Tuscan Salmon',
-      'source': 'TikTok - @cookingwithshereen',
+      'source': 'NYT Cooking',
       'time': '25 min',
       'emoji': '\u{1F969}',
       'rating': 4.9,
-      'category': 'Trending',
+      'category': 'TRENDING',
     },
     {
       'title': 'Birria Tacos',
-      'source': 'Instagram - @mexicanfoodjournal',
+      'source': 'Serious Eats',
       'time': '45 min',
       'emoji': '\u{1F32E}',
       'rating': 4.8,
-      'category': 'Viral',
+      'category': 'VIRAL',
     },
     {
       'title': 'Dubai Chocolate Bar',
-      'source': 'TikTok - @fixdessert',
+      'source': 'Half Baked Harvest',
       'time': '30 min',
       'emoji': '\u{1F36B}',
       'rating': 4.7,
-      'category': 'Trending',
+      'category': 'TRENDING',
     },
     {
       'title': 'Baked Feta Pasta',
-      'source': 'TikTok - @feelgoodfoodie',
+      'source': 'Feel Good Foodie',
       'time': '35 min',
       'emoji': '\u{1F35D}',
       'rating': 4.9,
-      'category': 'Classic',
+      'category': 'CLASSIC',
     },
     {
       'title': 'Korean Corn Cheese',
-      'source': 'Instagram - @maangchi',
+      'source': 'Maangchi',
       'time': '15 min',
       'emoji': '\u{1F33D}',
       'rating': 4.6,
-      'category': 'Viral',
+      'category': 'VIRAL',
     },
   ];
 
@@ -85,23 +84,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   const SizedBox(height: 20),
                   _buildQuickActions(),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 32),
                   _buildSectionHeader(
                     'Trending Today',
                     Icons.local_fire_department_rounded,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   _buildTrendingCards(),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 32),
                   _buildSectionHeader(
                     'Your Recipes',
                     Icons.bookmark_rounded,
                   ),
                   const SizedBox(height: 14),
-                  if (_savedRecipes.isEmpty)
-                    _buildEmptyState()
-                  else
-                    _buildSavedRecipes(),
+                  ListenableBuilder(
+                    listenable: SavedRecipesService.instance,
+                    builder: (context, _) {
+                      final recipes = SavedRecipesService.instance.recipes;
+                      if (recipes.isEmpty) return _buildEmptyState();
+                      return _buildSavedRecipes(recipes);
+                    },
+                  ),
                   const SizedBox(height: 120),
                 ],
               ),
@@ -164,25 +167,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ],
                     ),
                     child: IconButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          PageRouteBuilder(
-                            pageBuilder: (_, __, ___) => const SettingsScreen(),
-                            transitionsBuilder: (_, animation, __, child) {
-                              return SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(1, 0),
-                                  end: Offset.zero,
-                                ).animate(CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.easeOutCubic,
-                                )),
-                                child: child,
-                              );
-                            },
-                          ),
-                        );
-                      },
+                      onPressed: () => _openSettings(context),
                       icon: const Icon(
                         Icons.settings_rounded,
                         color: AppColors.textSecondary,
@@ -199,27 +184,70 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _openSettings(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const SettingsScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
+  void _openCreateRecipe({String? prefillTitle, String? prefillSource}) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => CreateRecipeScreen(
+          prefillTitle: prefillTitle,
+          prefillSource: prefillSource,
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildQuickActions() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
           _buildActionChip(
-            Icons.search_rounded,
-            'Search Web',
-            onTap: () => _showSearchWebSheet(),
-          ),
-          const SizedBox(width: 10),
-          _buildActionChip(
-            Icons.image_rounded,
-            'From Image',
-            onTap: () => _showImageSheet(),
+            Icons.edit_note_rounded,
+            'Write',
+            onTap: () => _openCreateRecipe(),
           ),
           const SizedBox(width: 10),
           _buildActionChip(
             Icons.link_rounded,
             'Paste Link',
-            onTap: () => _showPasteLinkSheet(),
+            onTap: _showPasteLinkSheet,
+          ),
+          const SizedBox(width: 10),
+          _buildActionChip(
+            Icons.search_rounded,
+            'Search',
+            onTap: _showSearchSheet,
           ),
         ],
       ),
@@ -232,32 +260,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(vertical: 14),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.borderLight, width: 1),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
             child: Column(
               children: [
-                Icon(icon, color: AppColors.primary, size: 22),
-                const SizedBox(height: 6),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, color: AppColors.primary, size: 20),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ],
@@ -273,15 +308,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primary, size: 20),
+          Icon(icon, color: AppColors.primary, size: 22),
           const SizedBox(width: 8),
           Text(
             title,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
-              letterSpacing: -0.3,
+              letterSpacing: -0.4,
             ),
           ),
         ],
@@ -291,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildTrendingCards() {
     return SizedBox(
-      height: 215,
+      height: 310,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -306,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             imageEmoji: recipe['emoji'],
             rating: recipe['rating'],
             category: recipe['category'],
-            onTap: () => _showRecipeDetail(recipe),
+            onTap: () => _showRecipeDetail(recipe, fromTrending: true),
           );
         },
       ),
@@ -350,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 6),
             Text(
-              'Ask me what to cook or save a recipe\nto get started',
+              'Tap Write, Paste Link, or Search\nto save your first recipe',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -364,20 +399,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildSavedRecipes() {
+  Widget _buildSavedRecipes(List<Map<String, dynamic>> recipes) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        children: _savedRecipes.asMap().entries.map((entry) {
+        children: recipes.asMap().entries.map((entry) {
+          final index = entry.key;
           final recipe = entry.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Dismissible(
-              key: Key('recipe_${entry.key}_${recipe['title']}'),
+              key: Key('recipe_${index}_${recipe['title']}'),
               direction: DismissDirection.endToStart,
-              onDismissed: (_) {
-                setState(() => _savedRecipes.removeAt(entry.key));
-                ScaffoldMessenger.of(context).showSnackBar(
+              onDismissed: (_) async {
+                final messenger = ScaffoldMessenger.of(context);
+                await SavedRecipesService.instance.removeAt(index);
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text('${recipe['title']} removed'),
                     behavior: SnackBarBehavior.floating,
@@ -387,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     action: SnackBarAction(
                       label: 'Undo',
                       onPressed: () {
-                        setState(() => _savedRecipes.insert(entry.key, recipe));
+                        SavedRecipesService.instance.insertAt(index, recipe);
                       },
                     ),
                   ),
@@ -405,7 +442,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => _showRecipeDetail(recipe),
+                  onTap: () => _showRecipeDetail(recipe, fromTrending: false),
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
                     padding: const EdgeInsets.all(14),
@@ -424,16 +461,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Row(
                       children: [
                         Container(
-                          width: 50,
-                          height: 50,
+                          width: 56,
+                          height: 56,
                           decoration: BoxDecoration(
-                            color: AppColors.primarySoft,
-                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.primarySoft,
+                                AppColors.primaryMuted.withValues(alpha: 0.4),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: Center(
                             child: Text(
                               recipe['emoji'] ?? '\u{1F372}',
-                              style: const TextStyle(fontSize: 24),
+                              style: const TextStyle(fontSize: 28),
                             ),
                           ),
                         ),
@@ -446,19 +490,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 recipe['title'] ?? 'Untitled',
                                 style: const TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 3),
-                              Text(
-                                recipe['source'] ?? 'Manual recipe',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textHint,
-                                ),
+                              Row(
+                                children: [
+                                  if ((recipe['time'] ?? '').toString().isNotEmpty) ...[
+                                    Icon(
+                                      Icons.access_time_rounded,
+                                      size: 12,
+                                      color: AppColors.textHint,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      recipe['time'],
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      recipe['source'] ?? 'Manual recipe',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textHint,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -510,9 +578,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     children: [
                       const SizedBox(width: 16),
                       Icon(
-                        Icons.search_rounded,
-                        color: AppColors.textHint,
-                        size: 20,
+                        Icons.auto_awesome_rounded,
+                        color: AppColors.primary,
+                        size: 18,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -535,7 +603,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             color: AppColors.textPrimary,
                           ),
                           onSubmitted: (value) {
-                            // TODO: AI search
+                            if (value.trim().isNotEmpty) {
+                              _showSearchingSheet(value.trim());
+                            }
                           },
                         ),
                       ),
@@ -567,8 +637,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () {
-                      // TODO: Voice input
                       HapticFeedback.mediumImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Voice search coming soon'),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      );
                     },
                     borderRadius: BorderRadius.circular(24),
                     child: const Icon(
@@ -586,112 +664,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // --- Bottom sheets for manual actions ---
-
-  void _showSearchWebSheet() {
-    final controller = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderLight,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Search the web',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Find a recipe from any website',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'e.g. "best carbonara recipe"',
-                  hintStyle: TextStyle(color: AppColors.textHint),
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-                  filled: true,
-                  fillColor: AppColors.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-                  ),
-                ),
-                onSubmitted: (value) {
-                  if (value.trim().isNotEmpty) {
-                    Navigator.pop(context);
-                    // TODO: Web search integration
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (controller.text.trim().isNotEmpty) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Search',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // --- Action sheets ---
 
   void _showPasteLinkSheet() {
     final controller = TextEditingController();
@@ -734,7 +707,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 6),
               Text(
-                'Save a recipe from any URL',
+                'Start a recipe from any URL',
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
@@ -746,7 +719,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   hintStyle: TextStyle(color: AppColors.textHint),
                   prefixIcon: const Icon(Icons.link_rounded, color: AppColors.primary),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.content_paste_rounded, color: AppColors.textHint),
+                    icon: const Icon(
+                      Icons.content_paste_rounded,
+                      color: AppColors.textHint,
+                    ),
                     onPressed: () async {
                       final data = await Clipboard.getData(Clipboard.kTextPlain);
                       if (data?.text != null) {
@@ -776,18 +752,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (controller.text.trim().isNotEmpty) {
-                      setState(() {
-                        _savedRecipes.add({
-                          'title': 'Recipe from link',
-                          'source': controller.text.trim(),
-                          'emoji': '\u{1F517}',
-                          'time': '',
-                          'rating': 0.0,
-                        });
-                      });
+                    final link = controller.text.trim();
+                    if (link.isNotEmpty) {
                       Navigator.pop(context);
-                      HapticFeedback.lightImpact();
+                      _openCreateRecipe(prefillSource: link);
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -799,7 +767,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   child: const Text(
-                    'Save Recipe',
+                    'Continue',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -811,10 +779,118 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showImageSheet() {
+  void _showSearchSheet() {
+    final controller = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Search for a recipe',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'What are you looking for?',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: 'e.g. "carbonara"',
+                  hintStyle: TextStyle(color: AppColors.textHint),
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                ),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    Navigator.pop(context);
+                    _showSearchingSheet(value.trim());
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (controller.text.trim().isNotEmpty) {
+                      Navigator.pop(context);
+                      _showSearchingSheet(controller.text.trim());
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Search',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSearchingSheet(String query) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -833,76 +909,66 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
+              const SizedBox(height: 24),
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.15),
+                      AppColors.primary.withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: AppColors.primary,
+                  size: 32,
+                ),
+              ),
               const SizedBox(height: 20),
-              const Text(
-                'Add from image',
-                style: TextStyle(
-                  fontSize: 20,
+              Text(
+                '"$query"',
+                style: const TextStyle(
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
-                'Take a photo or choose from gallery',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                'AI recipe search will go live soon.\nFor now, save it as a new recipe to start.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildImageOption(
-                      Icons.camera_alt_rounded,
-                      'Camera',
-                      onTap: () {
-                        Navigator.pop(context);
-                        // TODO: Camera integration
-                      },
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _openCreateRecipe(prefillTitle: query);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _buildImageOption(
-                      Icons.photo_library_rounded,
-                      'Gallery',
-                      onTap: () {
-                        Navigator.pop(context);
-                        // TODO: Gallery integration
-                      },
-                    ),
+                  child: const Text(
+                    'Write it manually',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImageOption(IconData icon, String label, {VoidCallback? onTap}) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 28),
-          decoration: BoxDecoration(
-            color: AppColors.primarySoft,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.primaryMuted.withValues(alpha: 0.3)),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 32),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
                 ),
               ),
             ],
@@ -912,13 +978,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showRecipeDetail(Map<String, dynamic> recipe) {
+  void _showRecipeDetail(Map<String, dynamic> recipe, {required bool fromTrending}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
+        initialChildSize: 0.78,
         maxChildSize: 0.95,
         minChildSize: 0.5,
         builder: (context, scrollController) => Container(
@@ -944,119 +1010,82 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Emoji hero
                   Center(
                     child: Container(
-                      width: 100,
-                      height: 100,
+                      width: 110,
+                      height: 110,
                       decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(24),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFE8F5E9), Color(0xFFA5D6A7)],
+                        ),
+                        borderRadius: BorderRadius.circular(26),
                       ),
                       child: Center(
                         child: Text(
                           recipe['emoji'] ?? '\u{1F372}',
-                          style: const TextStyle(fontSize: 48),
+                          style: const TextStyle(fontSize: 54),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Title
                   Center(
                     child: Text(
                       recipe['title'] ?? 'Untitled',
                       style: const TextStyle(
                         fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
+                        letterSpacing: -0.4,
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  // Source & meta
+                  const SizedBox(height: 6),
                   Center(
                     child: Text(
                       recipe['source'] ?? '',
                       style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // Stats row
-                  if (recipe['rating'] != null && recipe['rating'] > 0)
+                  const SizedBox(height: 18),
+                  if (recipe['rating'] != null && (recipe['rating'] as num) > 0)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildStatChip(Icons.star_rounded, '${recipe['rating']}', AppColors.star),
-                        const SizedBox(width: 12),
-                        if (recipe['time'] != null && recipe['time'].toString().isNotEmpty)
-                          _buildStatChip(Icons.access_time_rounded, recipe['time'], AppColors.textSecondary),
+                        _buildStatChip(
+                          Icons.star_rounded,
+                          '${recipe['rating']}',
+                          AppColors.star,
+                        ),
+                        const SizedBox(width: 10),
+                        if ((recipe['time'] ?? '').toString().isNotEmpty)
+                          _buildStatChip(
+                            Icons.access_time_rounded,
+                            recipe['time'],
+                            AppColors.primary,
+                          ),
                       ],
                     ),
                   const SizedBox(height: 28),
-                  // Ingredients placeholder
-                  const Text(
-                    'Ingredients',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      'Ingredients will appear here when connected to AI',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textHint,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
+                  _buildDetailSection('Ingredients', recipe['ingredients']),
+                  const SizedBox(height: 20),
+                  _buildDetailSection('Instructions', recipe['steps']),
+                  if ((recipe['notes'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _buildNotesBlock(recipe['notes']),
+                  ],
                   const SizedBox(height: 24),
-                  // Steps placeholder
-                  const Text(
-                    'Instructions',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      'Instructions will appear here when connected to AI',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textHint,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Save button (only for trending)
-                  if (!_savedRecipes.contains(recipe))
+                  if (fromTrending)
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() => _savedRecipes.add(recipe));
+                        onPressed: () async {
+                          await SavedRecipesService.instance.add(recipe);
+                          if (!context.mounted) return;
                           Navigator.pop(context);
                           HapticFeedback.lightImpact();
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -1093,23 +1122,124 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildDetailSection(String title, dynamic items) {
+    final list = items is List ? items : <String>[];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: list.isEmpty
+              ? Text(
+                  'None added yet',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textHint,
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: list.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final text = entry.value as String;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: idx < list.length - 1 ? 10 : 0,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              text,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textPrimary,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotesBlock(String notes) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primaryMuted.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.sticky_note_2_rounded, color: AppColors.primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              notes,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatChip(IconData icon, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 16, color: color),
-          const SizedBox(width: 4),
+          const SizedBox(width: 5),
           Text(
             label,
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: color,
             ),
           ),
