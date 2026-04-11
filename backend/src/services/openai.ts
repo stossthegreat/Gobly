@@ -15,21 +15,26 @@ function getClient(): OpenAI {
  * "I want something cozy for a rainy day" → "cozy comfort food recipes"
  */
 export async function normalizeQuery(query: string, userContext?: string): Promise<string> {
-  const systemPrompt = `You convert casual user food requests into concise web search queries optimized for finding highly-rated recipes on cooking websites.
+  const systemPrompt = `You convert casual user food requests into concise web search queries optimized for finding the BEST, HIGHEST-RATED versions of a recipe on cooking websites.
 
 Rules:
 - Output ONLY the search query, nothing else. No quotes, no explanation.
-- Keep it 2-6 words
-- Include the word "recipe" if it fits naturally
+- Keep it 3-7 words
+- Include the word "recipe" naturally
+- Bias toward popularity signals like "best", "perfect", "ultimate" when natural
+- When a celebrity chef has a definitive version of a dish, prefer their name
+  (e.g. "Gordon Ramsay scrambled eggs", "Ina Garten roast chicken")
 - Respect the user's context (allergies, diet, dislikes) — never suggest things they can't eat
-- Prefer specific dish names over vague descriptions
+- Prefer specific iconic dish names over vague descriptions
 - Remove first-person phrasing ("I want", "give me")
 
 Examples:
-Input: "I want mac and cheese" → "mac and cheese recipe"
-Input: "something cozy for winter" → "cozy winter comfort food recipes"
-Input: "quick dinner" → "quick weeknight dinner recipes"
-Input: "impress my date" → "elegant date night dinner recipes"`;
+Input: "I want mac and cheese" → "best mac and cheese recipe"
+Input: "scrambled eggs" → "Gordon Ramsay scrambled eggs"
+Input: "carbonara" → "best pasta carbonara recipe"
+Input: "something cozy for winter" → "best winter comfort food recipes"
+Input: "quick dinner" → "best quick weeknight dinner recipes"
+Input: "impress my date" → "best date night dinner recipes"`;
 
   const userMessage = userContext
     ? `User context:\n${userContext}\n\nUser request: ${query}`
@@ -50,29 +55,43 @@ Input: "impress my date" → "elegant date night dinner recipes"`;
 }
 
 /**
- * Generate a 7-day meal plan as 21 specific dish names.
+ * Generate a meal plan covering 1–7 days as specific dish names.
  * Returns an object with the structure: { Mon: { Breakfast, Lunch, Dinner }, ... }
+ *
+ * The dish names are biased toward HIGHLY-RATED, established, recognizable
+ * recipes — celebrity chef names where appropriate (e.g., "Gordon Ramsay
+ * scrambled eggs", "Ina Garten roast chicken") so the downstream search
+ * pulls back elite, well-known versions.
  */
 export async function generateWeekPlan(
   request: string,
   userContext?: string,
+  days: number = 7,
 ): Promise<Record<string, Record<string, string>>> {
-  const systemPrompt = `You are a meal planning expert. Generate a 7-day meal plan with 21 specific dish names (one for each breakfast, lunch, and dinner from Monday to Sunday).
+  const dayCount = Math.max(1, Math.min(7, days));
+  const allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const targetDays = allDays.slice(0, dayCount);
+  const targetDaysList = targetDays.map((d) => `"${d}"`).join(', ');
+
+  const systemPrompt = `You are a meal planning expert. Generate a ${dayCount}-day meal plan with ${dayCount * 3} specific dish names (one for each breakfast, lunch, and dinner across ${dayCount} days).
 
 Rules:
 - Return ONLY valid JSON, no markdown, no explanation
-- Each dish must be a SPECIFIC recipe name that could be searched on a cooking website
+- Each dish must be a SPECIFIC, RECOGNIZABLE recipe name that maps to a HIGHLY-RATED version online
+- Prefer iconic, well-known recipes — the kind that have hundreds or thousands of ratings
+- When a celebrity chef has a famous version of a dish, include their name (e.g. "Gordon Ramsay scrambled eggs", "Ina Garten roast chicken", "Jamie Oliver pasta carbonara")
 - Respect user allergies, diet, and dislikes STRICTLY
-- Vary cuisines, proteins, and cooking styles across the week
+- Vary cuisines, proteins, and cooking styles across the days
 - Keep dishes realistic for the user's skill level and time preference
-- Prefer dishes with established recipes (not made-up combinations)
+- NEVER invent fusion dishes or made-up combinations — only real recipes that exist on cooking websites
+
+Output keys must use exactly: ${targetDaysList}
+Each day must have exactly "Breakfast", "Lunch", "Dinner" keys.
 
 Return format:
 {
   "Mon": {"Breakfast": "...", "Lunch": "...", "Dinner": "..."},
-  "Tue": {...},
   ...
-  "Sun": {...}
 }`;
 
   const userMessage = userContext

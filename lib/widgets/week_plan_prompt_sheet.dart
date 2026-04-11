@@ -23,6 +23,7 @@ class _WeekPlanPromptSheet extends StatefulWidget {
 
 class _WeekPlanPromptSheetState extends State<_WeekPlanPromptSheet> {
   final _controller = TextEditingController();
+  int _days = 7;
 
   @override
   void dispose() {
@@ -37,7 +38,10 @@ class _WeekPlanPromptSheetState extends State<_WeekPlanPromptSheet> {
     Navigator.pop(context);
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => WeekPlanResultScreen(prompt: text),
+        pageBuilder: (_, __, ___) => WeekPlanResultScreen(
+          prompt: text,
+          days: _days,
+        ),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(
             opacity: animation,
@@ -127,6 +131,70 @@ class _WeekPlanPromptSheetState extends State<_WeekPlanPromptSheet> {
               ],
             ),
             const SizedBox(height: 20),
+            // Days picker
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.calendar_month_rounded,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'How many days?',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  _DayStepperButton(
+                    icon: Icons.remove_rounded,
+                    onTap: () {
+                      if (_days > 1) {
+                        setState(() => _days--);
+                        HapticFeedback.selectionClick();
+                      }
+                    },
+                  ),
+                  Container(
+                    width: 44,
+                    alignment: Alignment.center,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: Text(
+                        '$_days',
+                        key: ValueKey(_days),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _DayStepperButton(
+                    icon: Icons.add_rounded,
+                    onTap: () {
+                      if (_days < 7) {
+                        setState(() => _days++);
+                        HapticFeedback.selectionClick();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
             TextField(
               controller: _controller,
               autofocus: true,
@@ -179,9 +247,14 @@ class _WeekPlanPromptSheetState extends State<_WeekPlanPromptSheet> {
               child: ElevatedButton.icon(
                 onPressed: _submit,
                 icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                label: const Text(
-                  'Generate week',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                label: Text(
+                  _days == 7
+                      ? 'Generate week'
+                      : 'Generate $_days ${_days == 1 ? "day" : "days"}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -221,6 +294,33 @@ class _WeekPlanPromptSheetState extends State<_WeekPlanPromptSheet> {
             fontWeight: FontWeight.w600,
             color: AppColors.primary,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayStepperButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _DayStepperButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 18),
         ),
       ),
     );

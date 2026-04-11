@@ -102,15 +102,6 @@ function extractImageUrl(image: unknown): string {
   return '';
 }
 
-function extractAuthor(author: JsonLdRecipe['author']): string {
-  if (!author) return '';
-  if (typeof author === 'string') return author;
-  if (Array.isArray(author)) {
-    return author.map((a) => (typeof a === 'string' ? a : a?.name || '')).filter(Boolean).join(', ');
-  }
-  return author.name || '';
-}
-
 function extractInstructions(instructions: JsonLdRecipe['recipeInstructions']): string[] {
   if (!instructions) return [];
   if (typeof instructions === 'string') {
@@ -185,6 +176,7 @@ export function normalizeRecipe(
       domain: domainInfo.domain,
       name: domainInfo.name,
       url: sourceUrl,
+      authority: domainInfo.authority,
     },
     rating,
     time: {

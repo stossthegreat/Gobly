@@ -8,12 +8,17 @@ import '../widgets/recipe_detail_sheet.dart';
 
 /// Fired when the user asks to plan a week.
 /// Shows a pulsing loading state, calls /api/plan-week, auto-saves the
-/// 21 meals to MealPlanService on success, and displays the generated
-/// week for review.
+/// generated meals to MealPlanService on success, and displays the
+/// generated days for review.
 class WeekPlanResultScreen extends StatefulWidget {
   final String prompt;
+  final int days;
 
-  const WeekPlanResultScreen({super.key, required this.prompt});
+  const WeekPlanResultScreen({
+    super.key,
+    required this.prompt,
+    this.days = 7,
+  });
 
   @override
   State<WeekPlanResultScreen> createState() => _WeekPlanResultScreenState();
@@ -57,9 +62,13 @@ class _WeekPlanResultScreenState extends State<WeekPlanResultScreen>
   }
 
   Future<WeekPlanResponse> _run() async {
-    final result = await RecipeSearchService.instance.planWeek(widget.prompt);
+    final result = await RecipeSearchService.instance.planWeek(
+      widget.prompt,
+      days: widget.days,
+    );
     // Auto-commit to the planner with FULL recipe data attached so
-    // every meal in the planner can open the recipe detail sheet
+    // every meal in the planner can open the recipe detail sheet AND
+    // every ingredient flows into the grocery list automatically
     await MealPlanService.instance.setAll(result.toPlannedMealMap());
     return result;
   }
@@ -364,10 +373,12 @@ class _WeekPlanResultScreenState extends State<WeekPlanResultScreen>
             ),
           ),
           const SizedBox(height: 20),
-          // Day cards
-          ..._days.asMap().entries.map((entry) {
-            return _buildDayCard(entry.key, entry.value, result);
-          }),
+          // Day cards (only the days the user actually asked for)
+          ..._days
+              .asMap()
+              .entries
+              .where((e) => e.key < widget.days)
+              .map((entry) => _buildDayCard(entry.key, entry.value, result)),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,

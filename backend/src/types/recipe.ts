@@ -12,6 +12,7 @@ export interface Recipe {
     domain: string; // "cooking.nytimes.com"
     name: string; // "NYT Cooking"
     url: string; // original recipe URL
+    authority: number; // 0–100, used for elite ranking
   };
   rating: {
     value: number; // 0–5

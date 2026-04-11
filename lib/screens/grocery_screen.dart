@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../models/grocery_item.dart';
+import '../services/grocery_service.dart';
 import 'settings_screen.dart';
 
 class GroceryScreen extends StatefulWidget {
@@ -44,16 +46,6 @@ class _GroceryScreenState extends State<GroceryScreen> {
     },
   ];
 
-  // Grocery items: [{name, category, checked, quantity}]
-  final List<Map<String, dynamic>> _items = [];
-
-  List<Map<String, dynamic>> _itemsFor(String category) {
-    return _items.where((i) => i['category'] == category).toList();
-  }
-
-  int get _totalItems => _items.length;
-  int get _checkedItems => _items.where((i) => i['checked'] == true).length;
-
   @override
   void dispose() {
     _addController.dispose();
@@ -63,35 +55,52 @@ class _GroceryScreenState extends State<GroceryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _buildHeader(context),
-          Expanded(
-            child: _items.isEmpty && !_showAddField
-                ? _buildEmptyState()
-                : _buildGroceryList(),
+    return ListenableBuilder(
+      listenable: GroceryService.instance,
+      builder: (context, _) {
+        final items = GroceryService.instance.items;
+        final hasItems = items.isNotEmpty;
+        final totalCount = items.length;
+        final checkedCount = GroceryService.instance.checkedCount;
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: Column(
+            children: [
+              _buildHeader(context, hasItems, totalCount, checkedCount),
+              Expanded(
+                child: !hasItems && !_showAddField
+                    ? _buildEmptyState()
+                    : _buildGroceryList(items, totalCount, checkedCount),
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() => _showAddField = true);
-          Future.delayed(const Duration(milliseconds: 100), () {
-            _addFocus.requestFocus();
-          });
-          HapticFeedback.lightImpact();
-        },
-        backgroundColor: AppColors.primary,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-      ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              setState(() => _showAddField = true);
+              Future.delayed(const Duration(milliseconds: 100), () {
+                _addFocus.requestFocus();
+              });
+              HapticFeedback.lightImpact();
+            },
+            backgroundColor: AppColors.primary,
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(
+    BuildContext context,
+    bool hasItems,
+    int totalCount,
+    int checkedCount,
+  ) {
     return Container(
       color: AppColors.background,
       child: SafeArea(
@@ -114,9 +123,9 @@ class _GroceryScreenState extends State<GroceryScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _totalItems == 0
+                    totalCount == 0
                         ? 'Your shopping list'
-                        : '$_checkedItems of $_totalItems items',
+                        : '$checkedCount of $totalCount items',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
@@ -126,7 +135,7 @@ class _GroceryScreenState extends State<GroceryScreen> {
                 ],
               ),
               const Spacer(),
-              if (_items.isNotEmpty)
+              if (hasItems)
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -230,54 +239,12 @@ class _GroceryScreenState extends State<GroceryScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Tap + to add items or plan your\nmeals to auto-generate',
+              'Plan a meal with a recipe and ingredients\nappear here automatically',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.textSecondary,
                 height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 28),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  // TODO: Generate from meal plan
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        'Generate from meal plan',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
           ],
@@ -286,32 +253,35 @@ class _GroceryScreenState extends State<GroceryScreen> {
     );
   }
 
-  Widget _buildGroceryList() {
+  Widget _buildGroceryList(
+    List<GroceryItem> items,
+    int totalCount,
+    int checkedCount,
+  ) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
       child: Column(
         children: [
-          // Add item field
           if (_showAddField) _buildAddItemField(),
-          // Progress bar
-          if (_totalItems > 0) ...[
-            _buildProgressBar(),
+          if (totalCount > 0) ...[
+            _buildProgressBar(totalCount, checkedCount),
             const SizedBox(height: 16),
           ],
           // Category sections
           ..._categories.map((cat) {
-            final items = _itemsFor(cat['name'] as String);
-            if (items.isEmpty) return const SizedBox.shrink();
-            return _buildCategorySection(cat, items);
+            final catName = cat['name'] as String;
+            final catItems = items.where((i) => i.category == catName).toList();
+            if (catItems.isEmpty) return const SizedBox.shrink();
+            return _buildCategorySection(cat, catItems);
           }),
         ],
       ),
     );
   }
 
-  Widget _buildProgressBar() {
-    final progress = _totalItems > 0 ? _checkedItems / _totalItems : 0.0;
+  Widget _buildProgressBar(int totalCount, int checkedCount) {
+    final progress = totalCount > 0 ? checkedCount / totalCount : 0.0;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -333,7 +303,7 @@ class _GroceryScreenState extends State<GroceryScreen> {
               Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 18),
               const SizedBox(width: 8),
               Text(
-                '$_checkedItems of $_totalItems items',
+                '$checkedCount of $totalCount items',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -354,14 +324,11 @@ class _GroceryScreenState extends State<GroceryScreen> {
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              child: LinearProgressIndicator(
-                value: progress,
-                backgroundColor: AppColors.borderLight,
-                valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-                minHeight: 6,
-              ),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: AppColors.borderLight,
+              valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+              minHeight: 6,
             ),
           ),
         ],
@@ -408,7 +375,6 @@ class _GroceryScreenState extends State<GroceryScreen> {
               onSubmitted: (value) => _addItem(),
             ),
             const SizedBox(height: 12),
-            // Category chips
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -422,25 +388,40 @@ class _GroceryScreenState extends State<GroceryScreen> {
                       onTap: () => setState(() => _selectedCategory = name),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSelected ? color.withValues(alpha: 0.15) : AppColors.background,
+                          color: isSelected
+                              ? color.withValues(alpha: 0.15)
+                              : AppColors.background,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isSelected ? color.withValues(alpha: 0.4) : AppColors.borderLight,
+                            color: isSelected
+                                ? color.withValues(alpha: 0.4)
+                                : AppColors.borderLight,
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(cat['icon'] as IconData, size: 14, color: isSelected ? color : AppColors.textHint),
+                            Icon(
+                              cat['icon'] as IconData,
+                              size: 14,
+                              color: isSelected ? color : AppColors.textHint,
+                            ),
                             const SizedBox(width: 5),
                             Text(
                               name,
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                color: isSelected ? color : AppColors.textSecondary,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: isSelected
+                                    ? color
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ],
@@ -469,7 +450,10 @@ class _GroceryScreenState extends State<GroceryScreen> {
                       ),
                       child: const Text(
                         'Add',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -502,22 +486,22 @@ class _GroceryScreenState extends State<GroceryScreen> {
     );
   }
 
-  void _addItem() {
+  Future<void> _addItem() async {
     final text = _addController.text.trim();
     if (text.isEmpty) return;
-    setState(() {
-      _items.add({
-        'name': text,
-        'category': _selectedCategory,
-        'checked': false,
-      });
-      _addController.clear();
-    });
+    await GroceryService.instance.addManual(
+      name: text,
+      category: _selectedCategory,
+    );
+    _addController.clear();
     _addFocus.requestFocus();
     HapticFeedback.lightImpact();
   }
 
-  Widget _buildCategorySection(Map<String, dynamic> category, List<Map<String, dynamic>> items) {
+  Widget _buildCategorySection(
+    Map<String, dynamic> category,
+    List<GroceryItem> items,
+  ) {
     final color = category['color'] as Color;
 
     return Padding(
@@ -537,7 +521,6 @@ class _GroceryScreenState extends State<GroceryScreen> {
         ),
         child: Column(
           children: [
-            // Category header
             Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
@@ -549,7 +532,11 @@ class _GroceryScreenState extends State<GroceryScreen> {
                       color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(category['icon'] as IconData, color: color, size: 18),
+                    child: Icon(
+                      category['icon'] as IconData,
+                      color: color,
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Text(
@@ -573,7 +560,6 @@ class _GroceryScreenState extends State<GroceryScreen> {
               ),
             ),
             const Divider(height: 1, color: AppColors.borderLight),
-            // Items
             ...items.map((item) => _buildGroceryItem(item)),
           ],
         ),
@@ -581,24 +567,25 @@ class _GroceryScreenState extends State<GroceryScreen> {
     );
   }
 
-  Widget _buildGroceryItem(Map<String, dynamic> item) {
-    final checked = item['checked'] as bool? ?? false;
+  Widget _buildGroceryItem(GroceryItem item) {
+    final checked = item.checked;
     return Dismissible(
-      key: Key('grocery_${item['name']}_${item.hashCode}'),
+      key: Key('grocery_${item.id}'),
       direction: DismissDirection.endToStart,
-      onDismissed: (_) {
-        final index = _items.indexOf(item);
-        setState(() => _items.remove(item));
+      onDismissed: (_) async {
+        final messenger = ScaffoldMessenger.of(context);
+        final removed = item;
+        await GroceryService.instance.removeById(item.id);
         HapticFeedback.lightImpact();
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
-            content: Text('${item['name']} removed'),
+            content: Text('${removed.name} removed'),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             action: SnackBarAction(
               label: 'Undo',
               onPressed: () {
-                setState(() => _items.insert(index, item));
+                GroceryService.instance.insertAt(0, removed);
               },
             ),
           ),
@@ -615,7 +602,7 @@ class _GroceryScreenState extends State<GroceryScreen> {
       ),
       child: InkWell(
         onTap: () {
-          setState(() => item['checked'] = !checked);
+          GroceryService.instance.toggle(item.id);
           HapticFeedback.selectionClick();
         },
         child: Padding(
@@ -635,20 +622,58 @@ class _GroceryScreenState extends State<GroceryScreen> {
                   ),
                 ),
                 child: checked
-                    ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      )
                     : null,
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: checked ? AppColors.textHint : AppColors.textPrimary,
-                    decoration: checked ? TextDecoration.lineThrough : TextDecoration.none,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  child: Text(item['name'] as String),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: checked
+                            ? AppColors.textHint
+                            : AppColors.textPrimary,
+                        decoration:
+                            checked ? TextDecoration.lineThrough : TextDecoration.none,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      child: Text(item.name),
+                    ),
+                    if (item.sourceMealName != null) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.link_rounded,
+                            size: 11,
+                            color: AppColors.textHint,
+                          ),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              item.sourceMealName!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textHint,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -659,7 +684,7 @@ class _GroceryScreenState extends State<GroceryScreen> {
   }
 
   void _showClearOptions() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
@@ -682,8 +707,9 @@ class _GroceryScreenState extends State<GroceryScreen> {
               ),
               const SizedBox(height: 20),
               ListTile(
-                onTap: () {
-                  setState(() => _items.removeWhere((i) => i['checked'] == true));
+                onTap: () async {
+                  await GroceryService.instance.clearChecked();
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   HapticFeedback.lightImpact();
                 },
@@ -694,17 +720,24 @@ class _GroceryScreenState extends State<GroceryScreen> {
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
+                  child: const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                 ),
                 title: const Text(
                   'Clear checked items',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               ListTile(
-                onTap: () {
-                  setState(() => _items.clear());
+                onTap: () async {
+                  await GroceryService.instance.clear();
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   HapticFeedback.mediumImpact();
                 },
@@ -715,13 +748,23 @@ class _GroceryScreenState extends State<GroceryScreen> {
                     color: AppColors.error.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.delete_sweep_rounded, color: AppColors.error, size: 20),
+                  child: const Icon(
+                    Icons.delete_sweep_rounded,
+                    color: AppColors.error,
+                    size: 20,
+                  ),
                 ),
                 title: const Text(
                   'Clear all items',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.error),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.error,
+                  ),
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ],
           ),

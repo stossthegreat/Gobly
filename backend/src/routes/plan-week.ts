@@ -4,12 +4,13 @@ import { generateWeekPlan } from '../services/openai.js';
 import { webSearch } from '../services/web_search.js';
 import { fetchParallel } from '../services/fetcher.js';
 import { extractRecipeFromHtml } from '../services/jsonld.js';
-import { rankRecipes, filterQuality } from '../services/ranker.js';
+import { eliteRank } from '../services/ranker.js';
 import { isBlocked } from '../data/domains.js';
 
 interface PlanWeekRequest {
   prompt: string; // e.g., "Mediterranean this week, quick meals"
   userContext?: string;
+  days?: number; // 1–7, default 7
 }
 
 interface PlanWeekResponse {
@@ -30,17 +31,20 @@ interface PlanWeekResponse {
  */
 export async function registerPlanWeekRoute(app: FastifyInstance): Promise<void> {
   app.post<{ Body: PlanWeekRequest }>('/api/plan-week', async (request, reply) => {
-    const { prompt, userContext } = request.body;
+    const { prompt, userContext, days } = request.body;
 
     if (!prompt || typeof prompt !== 'string') {
       return reply.status(400).send({ error: 'Prompt is required' });
     }
 
+    // Clamp days to 1–7, default 7
+    const dayCount = Math.max(1, Math.min(7, days ?? 7));
+
     const started = Date.now();
 
     try {
       // Step 1: Generate meal plan
-      const plan = await generateWeekPlan(prompt, userContext);
+      const plan = await generateWeekPlan(prompt, userContext, dayCount);
 
       // Step 2: Collect all 21 dish names
       const dishes: { day: string; meal: string; name: string }[] = [];
@@ -53,14 +57,15 @@ export async function registerPlanWeekRoute(app: FastifyInstance): Promise<void>
         }
       }
 
-      // Step 3: Search for each dish in parallel (quick search — no LLM normalization)
+      // Step 3: Search for each dish in parallel using the elite filter cascade.
+      // Pulls 5 candidates per dish so the elite filter has options.
       const enriched = await Promise.all(
         dishes.map(async (dish) => {
           try {
-            const results = await webSearch(dish.name, 4);
+            const results = await webSearch(dish.name, 6);
             const candidates = results
               .filter((r) => r.link && !isBlocked(r.link))
-              .slice(0, 3);
+              .slice(0, 5);
             if (candidates.length === 0) return { ...dish, recipe: null };
 
             const fetched = await fetchParallel(candidates.map((c) => c.link));
@@ -71,8 +76,8 @@ export async function registerPlanWeekRoute(app: FastifyInstance): Promise<void>
               if (recipe) recipes.push(recipe);
             }
 
-            const filtered = filterQuality(recipes, { minImage: false });
-            const ranked = rankRecipes(filtered);
+            // Cascade-rank: best elite version, fallback to good, fallback to anything
+            const ranked = eliteRank(recipes, 1);
             return { ...dish, recipe: ranked[0] || null };
           } catch (err) {
             app.log.warn({ err, dish: dish.name }, 'Failed to fetch recipe for dish');

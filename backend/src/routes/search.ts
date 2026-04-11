@@ -4,7 +4,7 @@ import { webSearch } from '../services/web_search.js';
 import { fetchParallel } from '../services/fetcher.js';
 import { extractRecipeFromHtml } from '../services/jsonld.js';
 import { normalizeQuery } from '../services/openai.js';
-import { rankRecipes, filterQuality } from '../services/ranker.js';
+import { eliteRank } from '../services/ranker.js';
 import { isBlocked, getDomainInfo, TRUSTED_DOMAINS } from '../data/domains.js';
 import { TtlCache } from '../lib/cache.js';
 import { config } from '../config.js';
@@ -53,18 +53,18 @@ export async function registerSearchRoute(app: FastifyInstance): Promise<void> {
       }
 
       // Step 2: Web search (Brave preferred, Serper fallback)
-      const searchResults = await webSearch(searchQuery, 12);
+      // Pull MORE results so the elite filter has plenty to work with
+      const searchResults = await webSearch(searchQuery, 15);
 
-      // Step 3: Filter candidates
+      // Step 3: Filter candidates — bias toward trusted publishers, then take more
       const candidates = searchResults
         .filter((r) => r.link && !isBlocked(r.link))
         .sort((a, b) => {
-          // Prefer trusted domains
           const aTrusted = isTrusted(a.link) ? 1 : 0;
           const bTrusted = isTrusted(b.link) ? 1 : 0;
           return bTrusted - aTrusted;
         })
-        .slice(0, config.maxCandidates);
+        .slice(0, Math.max(config.maxCandidates, 10));
 
       if (candidates.length === 0) {
         return reply.status(404).send({ error: 'No usable results found', query });
@@ -81,9 +81,10 @@ export async function registerSearchRoute(app: FastifyInstance): Promise<void> {
         if (recipe) recipes.push(recipe);
       }
 
-      // Step 6 & 7: Filter quality and rank
-      const filtered = filterQuality(recipes, { minImage: true });
-      const ranked = rankRecipes(filtered).slice(0, config.resultsPerQuery);
+      // Step 6: Cascading elite quality filter — only the BEST versions
+      // (top-tier publisher OR 4.5+ stars with 50+ reviews OR 4.3+ with 500+).
+      // Falls back to looser tiers automatically if elite returns nothing.
+      const ranked = eliteRank(recipes, config.resultsPerQuery);
 
       const response: SearchResponse = {
         query: searchQuery,

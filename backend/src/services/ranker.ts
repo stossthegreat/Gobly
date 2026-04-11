@@ -27,18 +27,80 @@ function computeScore(recipe: Recipe): number {
   // Log-scale review count: log10(0+1)=0, log10(99+1)=2, log10(999+1)=3, log10(9999+1)=4
   const reviewScore = Math.min(Math.log10(reviewCount + 1) / 4, 1);
 
-  // Domain authority is 0-100; normalize
-  // We get it from the source.name field indirectly - actually from getDomainInfo
-  // But we need to pass it through. For now, use a neutral 0.7 default.
-  // TODO: Thread domain authority through normalizeRecipe into the Recipe type.
-  const authorityScore = 0.7;
+  const authorityScore = recipe.source.authority / 100;
 
   return ratingScore * 0.4 + reviewScore * 0.4 + authorityScore * 0.2;
 }
 
 /**
- * Filter out recipes that fall below quality thresholds.
- * Better to return fewer results than mediocre ones.
+ * Elite filter: only the BEST versions of a recipe make it through.
+ * A recipe qualifies if ANY of these is true:
+ *   - It's from a top-tier publisher (NYT, Serious Eats, BBC etc, authority ≥ 90)
+ *   - It has 4.5+ stars AND 50+ reviews
+ *   - It has 4.3+ stars AND 500+ reviews (mass-validated)
+ */
+export function isElite(recipe: Recipe): boolean {
+  if (!recipe.image) return false;
+  if (recipe.ingredients.length === 0) return false;
+  if (recipe.instructions.length === 0) return false;
+
+  const r = recipe.rating;
+  const isTopTier = recipe.source.authority >= 90;
+  if (isTopTier) return true;
+
+  const goodAndPopular = r.value >= 4.5 && r.count >= 50;
+  if (goodAndPopular) return true;
+
+  const massValidated = r.value >= 4.3 && r.count >= 500;
+  if (massValidated) return true;
+
+  return false;
+}
+
+/**
+ * Looser quality filter for fallback when no elite results exist.
+ * Still requires image, ingredients, instructions, and at least a
+ * decent rating if rated.
+ */
+export function isGoodQuality(recipe: Recipe): boolean {
+  if (!recipe.image) return false;
+  if (recipe.ingredients.length === 0) return false;
+  if (recipe.instructions.length === 0) return false;
+  if (recipe.rating.value > 0 && recipe.rating.value < 4.0) return false;
+  return true;
+}
+
+/**
+ * Minimum bar — only requires image and structured ingredients/instructions.
+ * Last resort fallback so we don't return zero results for obscure queries.
+ */
+export function isMinimumBar(recipe: Recipe): boolean {
+  if (!recipe.image) return false;
+  if (recipe.ingredients.length === 0) return false;
+  if (recipe.instructions.length === 0) return false;
+  return true;
+}
+
+/**
+ * Cascade-rank: try elite first, fall back to good, then minimum bar.
+ * Returns at most `limit` results, prioritizing the highest tier that
+ * has at least 1 result.
+ */
+export function eliteRank(recipes: Recipe[], limit: number): Recipe[] {
+  const elite = recipes.filter(isElite);
+  if (elite.length >= 1) {
+    return rankRecipes(elite).slice(0, limit);
+  }
+  const good = recipes.filter(isGoodQuality);
+  if (good.length >= 1) {
+    return rankRecipes(good).slice(0, limit);
+  }
+  const minBar = recipes.filter(isMinimumBar);
+  return rankRecipes(minBar).slice(0, limit);
+}
+
+/**
+ * @deprecated Use eliteRank() — this just delegates to keep callers working.
  */
 export function filterQuality(
   recipes: Recipe[],

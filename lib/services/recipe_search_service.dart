@@ -53,8 +53,8 @@ class RecipeSearchService {
     }
   }
 
-  /// Generate a 7-day meal plan with real recipes.
-  Future<WeekPlanResponse> planWeek(String prompt) async {
+  /// Generate a meal plan with real recipes for [days] days (1–7).
+  Future<WeekPlanResponse> planWeek(String prompt, {int days = 7}) async {
     _assertBackendConfigured();
     final userContext = UserProfileService.instance.profile.toAgentContext();
 
@@ -67,6 +67,7 @@ class RecipeSearchService {
             body: jsonEncode({
               'prompt': prompt,
               'userContext': userContext,
+              'days': days.clamp(1, 7),
             }),
           )
           .timeout(const Duration(seconds: 90));

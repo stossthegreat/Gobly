@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/planned_meal.dart';
 import '../models/recipe_result.dart';
+import 'grocery_service.dart';
 
 /// Persists the 7-day meal plan across tabs and app restarts.
 /// Keys use format: "Mon_Breakfast", "Tue_Lunch", etc.
@@ -60,6 +61,21 @@ class MealPlanService extends ChangeNotifier {
     _meals[key] = PlannedMeal(name: name, recipe: recipe);
     notifyListeners();
     await _save();
+
+    // Auto-grocery: if this meal has a real recipe with ingredients,
+    // populate them into the grocery list tagged with this meal slot.
+    // If a previous meal had auto-grocery items here they get replaced.
+    if (recipe != null && recipe.ingredients.isNotEmpty) {
+      await GroceryService.instance.addFromMeal(
+        mealKey: key,
+        mealName: name,
+        ingredients: recipe.ingredients,
+      );
+    } else {
+      // No recipe (manual meal) — clean any leftover auto items from
+      // a previous recipe-backed meal in this slot
+      await GroceryService.instance.removeByMealKey(key);
+    }
   }
 
   /// Replace the whole week atomically. Used by the AI week planner
@@ -68,18 +84,36 @@ class MealPlanService extends ChangeNotifier {
     _meals = Map<String, PlannedMeal>.from(meals);
     notifyListeners();
     await _save();
+
+    // Wipe all previous auto-grocery items, then add fresh ones for
+    // every meal in the new plan that has a recipe attached
+    await GroceryService.instance.clearAuto();
+    for (final entry in _meals.entries) {
+      final recipe = entry.value.recipe;
+      if (recipe != null && recipe.ingredients.isNotEmpty) {
+        await GroceryService.instance.addFromMeal(
+          mealKey: entry.key,
+          mealName: entry.value.name,
+          ingredients: recipe.ingredients,
+        );
+      }
+    }
   }
 
   Future<void> removeMeal(String key) async {
     _meals.remove(key);
     notifyListeners();
     await _save();
+    // Clean up any auto-grocery items from this slot
+    await GroceryService.instance.removeByMealKey(key);
   }
 
   Future<void> clear() async {
     _meals.clear();
     notifyListeners();
     await _save();
+    // All auto items came from cleared meals — wipe them
+    await GroceryService.instance.clearAuto();
   }
 
   Future<void> _save() async {
