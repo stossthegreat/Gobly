@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/recipe_result.dart';
+import '../models/week_plan.dart';
 import 'user_profile_service.dart';
 import 'app_settings_service.dart';
 
@@ -53,7 +54,7 @@ class RecipeSearchService {
   }
 
   /// Generate a 7-day meal plan with real recipes.
-  Future<Map<String, dynamic>> planWeek(String prompt) async {
+  Future<WeekPlanResponse> planWeek(String prompt) async {
     _assertBackendConfigured();
     final userContext = UserProfileService.instance.profile.toAgentContext();
 
@@ -68,7 +69,7 @@ class RecipeSearchService {
               'userContext': userContext,
             }),
           )
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 90));
 
       if (response.statusCode != 200) {
         throw RecipeSearchException(
@@ -77,13 +78,16 @@ class RecipeSearchService {
         );
       }
 
-      return jsonDecode(response.body) as Map<String, dynamic>;
+      return WeekPlanResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     } on RecipeSearchException {
       rethrow;
     } catch (e) {
       throw RecipeSearchException(
         statusCode: 0,
-        message: 'Could not reach backend at $_backendUrl.\n${_friendlyNetworkError(e)}',
+        message:
+            'Could not reach backend at $_backendUrl.\n${_friendlyNetworkError(e)}',
       );
     }
   }

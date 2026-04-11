@@ -8,6 +8,7 @@ import '../services/transcribe_service.dart';
 import 'settings_screen.dart';
 import 'create_recipe_screen.dart';
 import 'search_results_screen.dart';
+import 'week_plan_result_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -182,7 +183,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   const SizedBox(height: 20),
                   _buildQuickActions(),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
+                  _buildWeekPlanHint(),
+                  const SizedBox(height: 28),
                   _buildSectionHeader(
                     'Trending Today',
                     Icons.local_fire_department_rounded,
@@ -392,6 +395,84 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeekPlanHint() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _runAgentSearch('Plan my week, balanced meals'),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF43A047)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Plan my whole week',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        '"Plan my week, Mediterranean" — 21 meals in 10s',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white.withValues(alpha: 0.7),
+                  size: 14,
                 ),
               ],
             ),
@@ -1015,11 +1096,50 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// Detects when the user is asking for a whole week's plan rather
+  /// than a single recipe. Triggers on phrases like "plan my week",
+  /// "7 day", "seven day", "week of", "weekly plan", "commit me a week".
+  bool _looksLikeWeekPlan(String query) {
+    final q = query.toLowerCase();
+    const weekPlanTriggers = [
+      'plan my week',
+      'plan the week',
+      'plan me a week',
+      'commit me a week',
+      'commit me a 7',
+      '7 day',
+      '7-day',
+      'seven day',
+      'seven-day',
+      'full week',
+      'weekly plan',
+      'week of ',
+      'this week',
+      'for the week',
+      'whole week',
+      'meal plan',
+    ];
+    for (final trigger in weekPlanTriggers) {
+      if (q.contains(trigger)) return true;
+    }
+    // "plan my [adjective] week" / "plan me a [...] diet"
+    if (RegExp(r'\bplan\b.*\b(week|diet)\b').hasMatch(q)) return true;
+    return false;
+  }
+
   void _runAgentSearch(String query) {
     HapticFeedback.mediumImpact();
+
+    final isWeekPlan = _looksLikeWeekPlan(query);
+    final pageBuilder = isWeekPlan
+        ? (BuildContext _, Animation<double> __, Animation<double> ___) =>
+            WeekPlanResultScreen(prompt: query)
+        : (BuildContext _, Animation<double> __, Animation<double> ___) =>
+            SearchResultsScreen(query: query);
+
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => SearchResultsScreen(query: query),
+        pageBuilder: pageBuilder,
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(
             opacity: animation,

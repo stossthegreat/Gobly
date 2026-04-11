@@ -43,6 +43,14 @@ class MealPlanService extends ChangeNotifier {
     await _save();
   }
 
+  /// Replace the whole week atomically. Used by the AI week planner
+  /// so all 21 meals appear at once instead of 21 separate updates.
+  Future<void> setAll(Map<String, String> meals) async {
+    _meals = Map<String, String>.from(meals);
+    notifyListeners();
+    await _save();
+  }
+
   Future<void> removeMeal(String key) async {
     _meals.remove(key);
     notifyListeners();
