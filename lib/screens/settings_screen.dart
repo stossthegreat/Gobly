@@ -447,6 +447,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: _backendTesting
+                        ? null
+                        : () async {
+                            await AppSettingsService.instance.resetToDefault();
+                            _backendController.text =
+                                AppSettingsService.instance.backendUrl;
+                            setState(() => _backendStatus = null);
+                            HapticFeedback.lightImpact();
+                          },
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text(
+                      'Reset',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      side: BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
             if (_backendStatus != null) ...[

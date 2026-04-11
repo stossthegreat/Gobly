@@ -11,42 +11,73 @@ class AppSettingsService extends ChangeNotifier {
 
   static const _backendUrlKey = 'recimo_backend_url_v1';
 
-  /// Production Railway URL — baked in so new installs work out of the box.
-  /// Can still be overridden at runtime (Settings) or at build time
-  /// (--dart-define=BACKEND_URL=...).
-  static const String _productionDefault =
+  /// Production Railway URL — always falls back to this if nothing else is set.
+  /// Can be overridden at runtime (Settings) or at build time via
+  /// --dart-define=BACKEND_URL=...
+  static const String productionDefault =
       'https://recimobackend-production.up.railway.app';
 
-  /// Compile-time default (overridable with --dart-define=BACKEND_URL=...)
-  static const String _compileTimeDefault = String.fromEnvironment(
+  /// Compile-time override only — does NOT apply when empty.
+  static const String _compileTimeOverride = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: _productionDefault,
+    defaultValue: '',
   );
 
-  String _backendUrl = '';
+  // Start with the production default so we're never empty, even
+  // before load() resolves. This guarantees the very first request
+  // after app boot has a valid URL.
+  String _backendUrl = productionDefault;
   String get backendUrl => _backendUrl;
 
-  /// True if there's a usable backend URL configured
   bool get hasBackend => _backendUrl.isNotEmpty;
 
   bool _loaded = false;
   bool get loaded => _loaded;
+
+  /// Detect bad URLs from previous versions that should be ignored
+  bool _isBadStored(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('localhost') ||
+        lower.contains('127.0.0.1') ||
+        lower.contains('10.0.2.2') || // Android emulator loopback
+        !lower.startsWith('http');
+  }
 
   Future<void> load() async {
     if (_loaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString(_backendUrlKey);
-      if (stored != null && stored.isNotEmpty) {
+
+      if (stored != null && stored.isNotEmpty && !_isBadStored(stored)) {
+        // User has a valid saved URL — use it
         _backendUrl = stored;
-      } else if (_compileTimeDefault.isNotEmpty) {
-        _backendUrl = _compileTimeDefault;
+      } else if (_compileTimeOverride.isNotEmpty) {
+        // Build-time override takes precedence over production default
+        _backendUrl = _compileTimeOverride;
+      } else {
+        // Fall through to the production default, and if the stored
+        // value was a known-bad URL, wipe it so it doesn't come back
+        _backendUrl = productionDefault;
+        if (stored != null && stored.isNotEmpty) {
+          await prefs.remove(_backendUrlKey);
+        }
       }
     } catch (_) {
-      _backendUrl = '';
+      _backendUrl = productionDefault;
     }
     _loaded = true;
     notifyListeners();
+  }
+
+  /// Reset to the production Railway URL
+  Future<void> resetToDefault() async {
+    _backendUrl = productionDefault;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_backendUrlKey);
+    } catch (_) {}
   }
 
   Future<void> setBackendUrl(String url) async {
