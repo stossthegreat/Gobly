@@ -25,7 +25,7 @@ class TranscribeService {
 
     final tempDir = await getTemporaryDirectory();
     final path =
-        '${tempDir.path}/recimo_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        '${tempDir.path}/gobly_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
     await _recorder.start(
       const RecordConfig(

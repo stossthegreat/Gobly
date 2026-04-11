@@ -14,9 +14,7 @@ class MealPlanService extends ChangeNotifier {
   static final MealPlanService _instance = MealPlanService._();
   static MealPlanService get instance => _instance;
 
-  static const _storageKey = 'recimo_meal_plan_v2';
-  // v1 used plain strings — fall back to it if v2 doesn't exist
-  static const _legacyStorageKey = 'recimo_meal_plan_v1';
+  static const _storageKey = 'gobly_meal_plan_v1';
 
   Map<String, PlannedMeal> _meals = {};
   Map<String, PlannedMeal> get meals => Map.unmodifiable(_meals);
@@ -33,22 +31,10 @@ class MealPlanService extends ChangeNotifier {
     if (_loaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      // Try v2 first
-      final v2 = prefs.getString(_storageKey);
-      if (v2 != null && v2.isNotEmpty) {
-        final map = jsonDecode(v2) as Map<String, dynamic>;
+      final raw = prefs.getString(_storageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final map = jsonDecode(raw) as Map<String, dynamic>;
         _meals = map.map((k, v) => MapEntry(k, PlannedMeal.fromStored(v)));
-      } else {
-        // Migrate v1 (plain strings) if present
-        final v1 = prefs.getString(_legacyStorageKey);
-        if (v1 != null && v1.isNotEmpty) {
-          final map = jsonDecode(v1) as Map<String, dynamic>;
-          _meals = map.map(
-            (k, v) => MapEntry(k, PlannedMeal(name: v as String)),
-          );
-          // Save forward to v2 format
-          await _save();
-        }
       }
     } catch (_) {
       _meals = {};
