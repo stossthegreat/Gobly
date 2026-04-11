@@ -1,22 +1,36 @@
 import type { FastifyInstance } from 'fastify';
-import { config } from '../config.js';
+import { config, activeSearchProvider } from '../config.js';
 
 /**
  * GET /api/diagnose
  *
- * Real end-to-end check that actually calls Serper and OpenAI with
- * minimal requests. Use this instead of /health when you want to
- * verify API keys are valid, not just that env vars are set.
+ * Real end-to-end check that actually calls OpenAI, Brave, and Serper
+ * with minimal live requests. Use this instead of /health when you
+ * want to verify API keys are valid, not just that env vars are set.
  */
 export async function registerDiagnoseRoute(app: FastifyInstance): Promise<void> {
   app.get('/api/diagnose', async () => {
-    const checks = {
+    const checks: Record<string, unknown> = {
       openai: await checkOpenAI(),
-      serper: await checkSerper(),
     };
 
+    if (config.braveApiKey) {
+      checks.brave = await checkBrave();
+    }
+    if (config.serperApiKey) {
+      checks.serper = await checkSerper();
+    }
+
+    const openaiOk = (checks.openai as { ok: boolean }).ok;
+    const braveOk = config.braveApiKey ? (checks.brave as { ok: boolean }).ok : false;
+    const serperOk = config.serperApiKey ? (checks.serper as { ok: boolean }).ok : false;
+
+    const searchOk = braveOk || serperOk;
+    const overall = openaiOk && searchOk ? 'ok' : 'degraded';
+
     return {
-      status: checks.openai.ok && checks.serper.ok ? 'ok' : 'degraded',
+      status: overall,
+      activeProvider: activeSearchProvider(),
       checks,
       timestamp: new Date().toISOString(),
     };
@@ -30,11 +44,8 @@ async function checkOpenAI(): Promise<{ ok: boolean; error?: string; latencyMs?:
 
   const started = Date.now();
   try {
-    // Cheapest possible OpenAI call: list models
     const response = await fetch('https://api.openai.com/v1/models', {
-      headers: {
-        Authorization: `Bearer ${config.openaiApiKey}`,
-      },
+      headers: { Authorization: `Bearer ${config.openaiApiKey}` },
     });
 
     const latency = Date.now() - started;
@@ -49,6 +60,45 @@ async function checkOpenAI(): Promise<{ ok: boolean; error?: string; latencyMs?:
       error: `OpenAI ${response.status}: ${body.slice(0, 200)}`,
       latencyMs: latency,
     };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+      latencyMs: Date.now() - started,
+    };
+  }
+}
+
+async function checkBrave(): Promise<{ ok: boolean; error?: string; latencyMs?: number }> {
+  if (!config.braveApiKey) {
+    return { ok: false, error: 'BRAVE_API_KEY not set' };
+  }
+
+  const started = Date.now();
+  try {
+    const url = new URL('https://api.search.brave.com/res/v1/web/search');
+    url.searchParams.set('q', 'test');
+    url.searchParams.set('count', '1');
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: 'application/json',
+        'X-Subscription-Token': config.braveApiKey,
+      },
+    });
+
+    const latency = Date.now() - started;
+
+    if (response.ok) {
+      return { ok: true, latencyMs: latency };
+    }
+
+    const body = await response.text().catch(() => '');
+    let friendly = `Brave ${response.status}: ${body.slice(0, 200)}`;
+    if (response.status === 401 || response.status === 403) {
+      friendly =
+        'Brave API key is invalid. Get a fresh key at https://api.search.brave.com and paste it as BRAVE_API_KEY in Railway.';
+    }
+    return { ok: false, error: friendly, latencyMs: latency };
   } catch (err) {
     return {
       ok: false,
@@ -84,14 +134,9 @@ async function checkSerper(): Promise<{ ok: boolean; error?: string; latencyMs?:
     let friendly = `Serper ${response.status}: ${body.slice(0, 200)}`;
     if (response.status === 403 || response.status === 401) {
       friendly =
-        'Serper API key is invalid (403 Unauthorized). ' +
-        'Check that SERPER_API_KEY in Railway is correct — no quotes, no whitespace.';
+        'Serper API key is invalid (403 Unauthorized). Sign up at https://serper.dev and paste a fresh key as SERPER_API_KEY in Railway.';
     }
-    return {
-      ok: false,
-      error: friendly,
-      latencyMs: latency,
-    };
+    return { ok: false, error: friendly, latencyMs: latency };
   } catch (err) {
     return {
       ok: false,

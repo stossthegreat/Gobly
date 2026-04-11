@@ -153,8 +153,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 16),
-                  _buildBackendCard(),
-                  const SizedBox(height: 16),
                   _buildIntroCard(),
                   const SizedBox(height: 24),
                   _buildSection(
@@ -324,6 +322,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // Hidden — kept for future developer mode
+  // ignore: unused_element
   Widget _buildBackendCard() {
     final isSuccess = _backendStatus?.startsWith('Connected') ?? false;
     final statusColor = _backendStatus == null

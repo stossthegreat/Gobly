@@ -1,4 +1,4 @@
-import { config, assertKeysConfigured } from '../config.js';
+import { config } from '../config.js';
 
 /**
  * Serper.dev search result (simplified to what we need).
@@ -18,7 +18,9 @@ export async function serperSearch(
   query: string,
   limit: number = 10,
 ): Promise<SerperResult[]> {
-  assertKeysConfigured();
+  if (!config.serperApiKey) {
+    throw new Error('SERPER_API_KEY not set');
+  }
   const enrichedQuery = /recipe/i.test(query) ? query : `${query} recipe`;
 
   const response = await fetch('https://google.serper.dev/search', {

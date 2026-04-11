@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Recipe } from '../types/recipe.js';
 import { generateWeekPlan } from '../services/openai.js';
-import { serperSearch } from '../services/serper.js';
+import { webSearch } from '../services/web_search.js';
 import { fetchParallel } from '../services/fetcher.js';
 import { extractRecipeFromHtml } from '../services/jsonld.js';
 import { rankRecipes, filterQuality } from '../services/ranker.js';
@@ -57,7 +57,7 @@ export async function registerPlanWeekRoute(app: FastifyInstance): Promise<void>
       const enriched = await Promise.all(
         dishes.map(async (dish) => {
           try {
-            const results = await serperSearch(dish.name, 4);
+            const results = await webSearch(dish.name, 4);
             const candidates = results
               .filter((r) => r.link && !isBlocked(r.link))
               .slice(0, 3);

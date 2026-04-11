@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Recipe, SearchRequest, SearchResponse } from '../types/recipe.js';
-import { serperSearch } from '../services/serper.js';
+import { webSearch } from '../services/web_search.js';
 import { fetchParallel } from '../services/fetcher.js';
 import { extractRecipeFromHtml } from '../services/jsonld.js';
 import { normalizeQuery } from '../services/openai.js';
@@ -52,8 +52,8 @@ export async function registerSearchRoute(app: FastifyInstance): Promise<void> {
         searchQuery = query;
       }
 
-      // Step 2: Web search
-      const searchResults = await serperSearch(searchQuery, 12);
+      // Step 2: Web search (Brave preferred, Serper fallback)
+      const searchResults = await webSearch(searchQuery, 12);
 
       // Step 3: Filter candidates
       const candidates = searchResults

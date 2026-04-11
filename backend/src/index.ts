@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { config } from './config.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerDiagnoseRoute } from './routes/diagnose.js';
+import { registerDebugRoute } from './routes/debug.js';
 import { registerSearchRoute } from './routes/search.js';
 import { registerPlanWeekRoute } from './routes/plan-week.js';
 
@@ -60,6 +61,7 @@ async function main(): Promise<void> {
 
   await registerHealthRoute(app);
   await registerDiagnoseRoute(app);
+  await registerDebugRoute(app);
   await registerSearchRoute(app);
   await registerPlanWeekRoute(app);
 

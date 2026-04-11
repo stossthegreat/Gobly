@@ -18,16 +18,30 @@ export const config = {
   port: optionalInt('PORT', 3000),
   openaiApiKey: optional('OPENAI_API_KEY', ''),
   openaiModel: optional('OPENAI_MODEL', 'gpt-4o-mini'),
+  // Either BRAVE_API_KEY or SERPER_API_KEY works. Brave is preferred when both are set.
+  braveApiKey: optional('BRAVE_API_KEY', ''),
   serperApiKey: optional('SERPER_API_KEY', ''),
   cacheTtlSeconds: optionalInt('CACHE_TTL_SECONDS', 3600),
   maxCandidates: optionalInt('MAX_CANDIDATES', 6),
   resultsPerQuery: optionalInt('RESULTS_PER_QUERY', 3),
 };
 
+/** True if at least one web search provider is configured */
+export function hasSearchProvider(): boolean {
+  return !!config.braveApiKey || !!config.serperApiKey;
+}
+
+/** Returns which search provider will be used */
+export function activeSearchProvider(): 'brave' | 'serper' | 'none' {
+  if (config.braveApiKey) return 'brave';
+  if (config.serperApiKey) return 'serper';
+  return 'none';
+}
+
 export function assertKeysConfigured(): void {
   const missing: string[] = [];
   if (!config.openaiApiKey) missing.push('OPENAI_API_KEY');
-  if (!config.serperApiKey) missing.push('SERPER_API_KEY');
+  if (!hasSearchProvider()) missing.push('BRAVE_API_KEY or SERPER_API_KEY');
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(', ')}. ` +
@@ -40,11 +54,15 @@ export function assertKeysConfigured(): void {
 export function configStatus(): {
   ok: boolean;
   openaiConfigured: boolean;
+  braveConfigured: boolean;
   serperConfigured: boolean;
+  searchProvider: 'brave' | 'serper' | 'none';
 } {
   return {
     ok: true,
     openaiConfigured: !!config.openaiApiKey,
+    braveConfigured: !!config.braveApiKey,
     serperConfigured: !!config.serperApiKey,
+    searchProvider: activeSearchProvider(),
   };
 }
