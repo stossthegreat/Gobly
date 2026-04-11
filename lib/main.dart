@@ -28,16 +28,16 @@ void main() async {
     CookbooksService.instance.load(),
     GroceryService.instance.load(),
   ]);
-  runApp(const RecimoApp());
+  runApp(const GoblyApp());
 }
 
-class RecimoApp extends StatelessWidget {
-  const RecimoApp({super.key});
+class GoblyApp extends StatelessWidget {
+  const GoblyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Recimo',
+      title: 'Gobly',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       home: const AppShell(),

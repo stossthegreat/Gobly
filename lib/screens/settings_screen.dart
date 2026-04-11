@@ -290,7 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildLinkRow(
                     icon: Icons.info_outline_rounded,
                     color: AppColors.textSecondary,
-                    title: 'About Recimo',
+                    title: 'About Gobly',
                     trailing: 'v0.1.0',
                     onTap: _showAboutSheet,
                   ),
@@ -1310,7 +1310,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 18),
               const Text(
-                'Recimo',
+                'Gobly',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -1407,7 +1407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Sign out?'),
         content: const Text(
-          'Recimo is local-only right now — there is no cloud account to sign out of. Cloud sign-in is coming soon. For now, this just closes the screen.',
+          'Gobly is local-only right now — there is no cloud account to sign out of. Cloud sign-in is coming soon. For now, this just closes the screen.',
         ),
         actions: [
           TextButton(
@@ -1455,10 +1455,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   static const _termsText =
-      'By using Recimo you agree to use the app for personal recipe '
+      'By using Gobly you agree to use the app for personal recipe '
       'discovery and meal planning. Recipes shown via search are sourced '
       'from third-party publishers and remain the intellectual property '
-      'of those publishers. Recimo is provided "as is" without warranty.\n\n'
+      'of those publishers. Gobly is provided "as is" without warranty.\n\n'
       'You agree not to misuse the service, attempt to disrupt the '
       'backend, or use the app for any unlawful purpose. We may update '
       'these terms at any time and material changes will be communicated '
@@ -1466,7 +1466,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'These terms are placeholder until a formal legal review is complete.';
 
   static const _privacyText =
-      'Recimo stores your profile (name, allergies, diet, preferences), '
+      'Gobly stores your profile (name, allergies, diet, preferences), '
       'saved recipes, meal plans, cookbooks, and settings locally on '
       'your device. This data does not leave your device unless you '
       'use a feature that requires the backend (search, week plan, '

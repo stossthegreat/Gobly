@@ -243,7 +243,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name.isEmpty ? 'Recimo' : 'Hi, $name',
+                        name.isEmpty ? 'Gobly' : 'Hi, $name',
                         style: const TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w800,

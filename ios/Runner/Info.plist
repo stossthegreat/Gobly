@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Recimo</string>
+	<string>Gobly</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>recimo</string>
+	<string>gobly</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -46,8 +46,8 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Recimo uses your microphone to let you speak your recipe queries.</string>
+	<string>Gobly uses your microphone to let you speak your recipe queries.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Recimo uses speech recognition to turn your voice into recipe searches.</string>
+	<string>Gobly uses speech recognition to turn your voice into recipe searches.</string>
 </dict>
 </plist>
