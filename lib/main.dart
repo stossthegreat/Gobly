@@ -8,6 +8,7 @@ import 'services/user_profile_service.dart';
 import 'services/meal_plan_service.dart';
 import 'services/saved_recipes_service.dart';
 import 'services/app_settings_service.dart';
+import 'services/cookbooks_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +24,7 @@ void main() async {
     MealPlanService.instance.load(),
     SavedRecipesService.instance.load(),
     AppSettingsService.instance.load(),
+    CookbooksService.instance.load(),
   ]);
   runApp(const RecimoApp());
 }

@@ -5,6 +5,9 @@ import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
 import '../services/app_settings_service.dart';
 import '../services/recipe_search_service.dart';
+import '../services/meal_plan_service.dart';
+import '../services/saved_recipes_service.dart';
+import '../services/cookbooks_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -262,6 +265,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         HapticFeedback.selectionClick();
                       },
                     ),
+                  ),
+                  const SizedBox(height: 28),
+                  _buildSettingsSectionLabel('Account'),
+                  const SizedBox(height: 10),
+                  _buildLinkRow(
+                    icon: Icons.policy_rounded,
+                    color: AppColors.textSecondary,
+                    title: 'Terms of Service',
+                    onTap: () => _showStaticDoc(
+                      title: 'Terms of Service',
+                      body: _termsText,
+                    ),
+                  ),
+                  _buildLinkRow(
+                    icon: Icons.privacy_tip_rounded,
+                    color: AppColors.textSecondary,
+                    title: 'Privacy Policy',
+                    onTap: () => _showStaticDoc(
+                      title: 'Privacy Policy',
+                      body: _privacyText,
+                    ),
+                  ),
+                  _buildLinkRow(
+                    icon: Icons.info_outline_rounded,
+                    color: AppColors.textSecondary,
+                    title: 'About Recimo',
+                    trailing: 'v0.1.0',
+                    onTap: _showAboutSheet,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildSettingsSectionLabel('Danger Zone'),
+                  const SizedBox(height: 10),
+                  _buildLinkRow(
+                    icon: Icons.cleaning_services_rounded,
+                    color: const Color(0xFFFFB300),
+                    title: 'Clear all data',
+                    subtitle: 'Wipes recipes, plans, profile',
+                    onTap: _confirmClearAllData,
+                  ),
+                  _buildLinkRow(
+                    icon: Icons.logout_rounded,
+                    color: AppColors.textSecondary,
+                    title: 'Sign out',
+                    subtitle: 'Local-only — no account yet',
+                    onTap: _confirmSignOut,
+                  ),
+                  _buildLinkRow(
+                    icon: Icons.delete_forever_rounded,
+                    color: AppColors.error,
+                    title: 'Delete account',
+                    subtitle: 'Permanently remove all data',
+                    onTap: _confirmDeleteAccount,
+                    isDanger: true,
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -1034,4 +1090,394 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  // ==========================================================================
+  // Account & legal section helpers
+  // ==========================================================================
+
+  Widget _buildSettingsSectionLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 0, 20, 0),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textHint,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkRow({
+    required IconData icon,
+    required Color color,
+    required String title,
+    String? subtitle,
+    String? trailing,
+    required VoidCallback onTap,
+    bool isDanger = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDanger
+                    ? AppColors.error.withValues(alpha: 0.2)
+                    : AppColors.borderLight,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isDanger
+                              ? AppColors.error
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (trailing != null) ...[
+                  Text(
+                    trailing,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textHint,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showStaticDoc({required String title, required String body}) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            controller: scrollController,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.borderLight,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    body,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAboutSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.restaurant_menu_rounded,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Recimo',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'v0.1.0',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'The fastest way to find the right recipe and plan your week.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Built with care.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textHint,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmClearAllData() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Clear all data?'),
+        content: const Text(
+          'This will remove all saved recipes, meal plans, cookbooks, and your profile. The app will return to a fresh state.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await SavedRecipesService.instance.clear();
+              await MealPlanService.instance.clear();
+              await CookbooksService.instance.delete('');
+              for (final cb in CookbooksService.instance.cookbooks.toList()) {
+                await CookbooksService.instance.delete(cb.id);
+              }
+              await UserProfileService.instance.reset();
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              HapticFeedback.mediumImpact();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('All data cleared'),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
+            },
+            child: const Text(
+              'Clear all',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmSignOut() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Sign out?'),
+        content: const Text(
+          'Recimo is local-only right now — there is no cloud account to sign out of. Cloud sign-in is coming soon. For now, this just closes the screen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteAccount() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Delete account?',
+          style: TextStyle(color: AppColors.error),
+        ),
+        content: const Text(
+          'This will permanently delete all your data: profile, recipes, meal plans, cookbooks, and settings. You cannot undo this.\n\nTo confirm, you will need to clear data twice.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              _confirmClearAllData();
+            },
+            child: const Text(
+              'Continue',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const _termsText =
+      'By using Recimo you agree to use the app for personal recipe '
+      'discovery and meal planning. Recipes shown via search are sourced '
+      'from third-party publishers and remain the intellectual property '
+      'of those publishers. Recimo is provided "as is" without warranty.\n\n'
+      'You agree not to misuse the service, attempt to disrupt the '
+      'backend, or use the app for any unlawful purpose. We may update '
+      'these terms at any time and material changes will be communicated '
+      'in-app.\n\n'
+      'These terms are placeholder until a formal legal review is complete.';
+
+  static const _privacyText =
+      'Recimo stores your profile (name, allergies, diet, preferences), '
+      'saved recipes, meal plans, cookbooks, and settings locally on '
+      'your device. This data does not leave your device unless you '
+      'use a feature that requires the backend (search, week plan, '
+      'voice transcription).\n\n'
+      'When you use those features, the following is sent over HTTPS '
+      'to our backend: your query text or audio, and your profile '
+      'context (so the agent respects your allergies and diet). The '
+      'backend forwards queries to OpenAI and Serper/Brave Search and '
+      'returns the results. We do not store query history server-side '
+      'beyond a short cache for repeat queries.\n\n'
+      'You can clear all local data at any time from Settings → Clear '
+      'all data. This is placeholder text until a formal privacy '
+      'review is complete.';
 }
