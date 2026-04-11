@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../theme/app_theme.dart';
 import '../widgets/recipe_card.dart';
 import '../services/user_profile_service.dart';
 import '../services/saved_recipes_service.dart';
+import '../services/transcribe_service.dart';
 import 'settings_screen.dart';
 import 'create_recipe_screen.dart';
 import 'search_results_screen.dart';
@@ -19,9 +19,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
-  final stt.SpeechToText _speech = stt.SpeechToText();
-  bool _speechAvailable = false;
   bool _listening = false;
+  bool _transcribing = false;
   late AnimationController _micPulseController;
 
   // Mock trending data
@@ -75,31 +74,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
-    _initSpeech();
-  }
-
-  Future<void> _initSpeech() async {
-    try {
-      _speechAvailable = await _speech.initialize(
-        onError: (error) {
-          if (mounted) {
-            setState(() => _listening = false);
-            _micPulseController.stop();
-          }
-        },
-        onStatus: (status) {
-          if (status == 'done' || status == 'notListening') {
-            if (mounted) {
-              setState(() => _listening = false);
-              _micPulseController.stop();
-            }
-          }
-        },
-      );
-    } catch (_) {
-      _speechAvailable = false;
-    }
-    if (mounted) setState(() {});
   }
 
   @override
@@ -107,33 +81,63 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _searchController.dispose();
     _searchFocus.dispose();
     _micPulseController.dispose();
-    _speech.cancel();
+    if (TranscribeService.instance.isRecording) {
+      TranscribeService.instance.cancelRecording();
+    }
     super.dispose();
   }
 
+  /// Tap mic: start recording. Tap again: stop, upload to Whisper, search.
+  /// There is NO auto-stop on silence. Only user stops it.
   Future<void> _toggleListening() async {
     HapticFeedback.mediumImpact();
 
+    // If we're already transcribing (mid-upload), ignore taps
+    if (_transcribing) return;
+
     if (_listening) {
-      await _speech.stop();
-      setState(() => _listening = false);
+      // User tapped stop → stop recording and transcribe via backend Whisper
       _micPulseController.stop();
-      // Auto-submit if we captured anything
-      if (_searchController.text.trim().isNotEmpty) {
-        _runAgentSearch(_searchController.text.trim());
+      setState(() {
+        _listening = false;
+        _transcribing = true;
+      });
+
+      try {
+        final text = await TranscribeService.instance.stopAndTranscribe();
+        if (!mounted) return;
+        setState(() {
+          _transcribing = false;
+          _searchController.text = text;
+        });
+        if (text.trim().isNotEmpty) {
+          _runAgentSearch(text.trim());
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _transcribing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Transcription failed: $e'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
       }
       return;
     }
 
-    if (!_speechAvailable) {
-      // Re-initialize in case permission was just granted
-      await _initSpeech();
-      if (!_speechAvailable) {
+    // Start recording
+    try {
+      final started = await TranscribeService.instance.startRecording();
+      if (!started) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
-              'Microphone not available. Grant mic permission in app settings.',
+              'Microphone permission denied. Grant it in app settings.',
             ),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -143,36 +147,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         );
         return;
       }
+      if (!mounted) return;
+      setState(() {
+        _listening = true;
+        _searchController.clear();
+      });
+      _micPulseController.repeat(reverse: true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not start recording: $e'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
     }
-
-    setState(() {
-      _listening = true;
-      _searchController.clear();
-    });
-    _micPulseController.repeat(reverse: true);
-
-    await _speech.listen(
-      onResult: (result) {
-        if (!mounted) return;
-        setState(() {
-          _searchController.text = result.recognizedWords;
-        });
-        if (result.finalResult) {
-          _micPulseController.stop();
-          setState(() => _listening = false);
-          if (result.recognizedWords.trim().isNotEmpty) {
-            _runAgentSearch(result.recognizedWords.trim());
-          }
-        }
-      },
-      listenFor: const Duration(seconds: 15),
-      pauseFor: const Duration(seconds: 2),
-      localeId: 'en_US',
-      listenOptions: stt.SpeechListenOptions(
-        partialResults: true,
-        cancelOnError: true,
-      ),
-    );
   }
 
   @override
@@ -694,15 +686,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           controller: _searchController,
                           focusNode: _searchFocus,
                           decoration: InputDecoration(
-                            hintText: _listening
-                                ? 'Listening...'
-                                : '"I want mac and cheese..."',
+                            hintText: _transcribing
+                                ? 'Transcribing...'
+                                : _listening
+                                    ? 'Listening — tap stop when done'
+                                    : '"I want mac and cheese..."',
                             hintStyle: TextStyle(
-                              color: _listening
-                                  ? AppColors.primary
-                                  : AppColors.textHint,
+                              color: _transcribing
+                                  ? const Color(0xFFFFB300)
+                                  : _listening
+                                      ? const Color(0xFFE53935)
+                                      : AppColors.textHint,
                               fontSize: 14,
-                              fontWeight: _listening
+                              fontWeight: (_listening || _transcribing)
                                   ? FontWeight.w600
                                   : FontWeight.w400,
                             ),
@@ -732,6 +728,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 animation: _micPulseController,
                 builder: (context, _) {
                   final pulse = _listening ? _micPulseController.value : 0.0;
+                  // Three states: idle (green mic), listening (red stop), transcribing (amber spinner)
+                  final colors = _transcribing
+                      ? const [Color(0xFFFFB300), Color(0xFFFFCA28)]
+                      : _listening
+                          ? const [Color(0xFFE53935), Color(0xFFEF5350)]
+                          : const [Color(0xFF2E7D32), Color(0xFF43A047)];
+                  final shadowColor = _transcribing
+                      ? const Color(0xFFFFB300)
+                      : _listening
+                          ? const Color(0xFFE53935)
+                          : AppColors.primary;
                   return Container(
                     width: 48,
                     height: 48,
@@ -739,17 +746,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: _listening
-                            ? const [Color(0xFFE53935), Color(0xFFEF5350)]
-                            : const [Color(0xFF2E7D32), Color(0xFF43A047)],
+                        colors: colors,
                       ),
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: (_listening
-                                  ? const Color(0xFFE53935)
-                                  : AppColors.primary)
-                              .withValues(alpha: 0.3 + pulse * 0.3),
+                          color: shadowColor.withValues(alpha: 0.3 + pulse * 0.3),
                           blurRadius: 12 + pulse * 12,
                           offset: const Offset(0, 4),
                         ),
@@ -758,12 +760,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: _toggleListening,
+                        onTap: _transcribing ? null : _toggleListening,
                         borderRadius: BorderRadius.circular(24),
-                        child: Icon(
-                          _listening ? Icons.stop_rounded : Icons.mic_rounded,
-                          color: Colors.white,
-                          size: 22,
+                        child: Center(
+                          child: _transcribing
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor:
+                                        AlwaysStoppedAnimation(Colors.white),
+                                  ),
+                                )
+                              : Icon(
+                                  _listening
+                                      ? Icons.stop_rounded
+                                      : Icons.mic_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                         ),
                       ),
                     ),

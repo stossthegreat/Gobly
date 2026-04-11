@@ -1,11 +1,13 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import { config } from './config.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerDiagnoseRoute } from './routes/diagnose.js';
 import { registerDebugRoute } from './routes/debug.js';
 import { registerSearchRoute } from './routes/search.js';
 import { registerPlanWeekRoute } from './routes/plan-week.js';
+import { registerTranscribeRoute } from './routes/transcribe.js';
 
 async function main(): Promise<void> {
   const app = Fastify({
@@ -27,6 +29,12 @@ async function main(): Promise<void> {
   await app.register(cors, {
     origin: true, // accept any origin for mobile clients
     methods: ['GET', 'POST', 'OPTIONS'],
+  });
+
+  await app.register(multipart, {
+    limits: {
+      fileSize: 25 * 1024 * 1024, // 25 MB — Whisper max
+    },
   });
 
   // Request logging — logs every incoming request with a short summary
@@ -64,6 +72,7 @@ async function main(): Promise<void> {
   await registerDebugRoute(app);
   await registerSearchRoute(app);
   await registerPlanWeekRoute(app);
+  await registerTranscribeRoute(app);
 
   app.get('/', async () => ({
     name: 'Recimo API',
