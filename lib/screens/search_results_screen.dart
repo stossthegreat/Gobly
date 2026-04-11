@@ -184,9 +184,18 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
   }
 
   Widget _buildError(String message) {
+    // Figure out if this is a network issue or a backend/API issue
+    final isNetwork =
+        message.contains('Could not reach') ||
+            message.contains('Failed host lookup') ||
+            message.contains('Connection refused') ||
+            message.contains('timed out');
+    final title = isNetwork ? 'Could not reach the agent' : 'The agent hit a problem';
+    final icon = isNetwork ? Icons.cloud_off_rounded : Icons.error_outline_rounded;
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -197,39 +206,49 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
                 color: AppColors.error.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
-                Icons.cloud_off_rounded,
-                color: AppColors.error,
-                size: 36,
-              ),
+              child: Icon(icon, color: AppColors.error, size: 36),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Could not reach the agent',
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 10),
-            Text(
-              message,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-                height: 1.5,
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderLight),
               ),
-              textAlign: TextAlign.center,
+              child: SelectableText(
+                message,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                  fontFamily: 'monospace',
+                ),
+                textAlign: TextAlign.left,
+              ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: () {
                 setState(() {
                   _future = RecipeSearchService.instance.search(widget.query);
                 });
               },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text(
+                'Try again',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -238,10 +257,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-              ),
-              child: const Text(
-                'Try again',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
           ],

@@ -94,16 +94,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _backendStatus = null;
     });
     try {
-      final health = await RecipeSearchService.instance.checkHealth();
-      final config = (health['config'] as Map?)?.cast<String, dynamic>();
-      final ready = config?['ready'] == true;
-      setState(() {
-        _backendStatus = ready
-            ? 'Connected. Agent ready.'
-            : 'Connected but AI keys not set on backend.';
-      });
+      // Use the deep diagnose endpoint which actually tests the keys
+      final result = await RecipeSearchService.instance.diagnose();
+      final checks = (result['checks'] as Map?)?.cast<String, dynamic>() ?? {};
+      final openai = (checks['openai'] as Map?)?.cast<String, dynamic>() ?? {};
+      final serper = (checks['serper'] as Map?)?.cast<String, dynamic>() ?? {};
+      final openaiOk = openai['ok'] == true;
+      final serperOk = serper['ok'] == true;
+
+      if (openaiOk && serperOk) {
+        setState(() => _backendStatus = 'Connected. Agent ready.');
+      } else {
+        final issues = <String>[];
+        if (!openaiOk) {
+          issues.add('OpenAI: ${openai['error'] ?? 'failed'}');
+        }
+        if (!serperOk) {
+          issues.add('Serper: ${serper['error'] ?? 'failed'}');
+        }
+        setState(() => _backendStatus = issues.join('\n'));
+      }
     } catch (e) {
-      setState(() => _backendStatus = 'Could not reach: $e');
+      setState(() => _backendStatus = e.toString());
     } finally {
       if (mounted) setState(() => _backendTesting = false);
     }
@@ -313,9 +325,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildBackendCard() {
+    final isSuccess = _backendStatus?.startsWith('Connected') ?? false;
     final statusColor = _backendStatus == null
         ? null
-        : _backendStatus!.startsWith('Connected')
+        : isSuccess
             ? AppColors.primary
             : AppColors.error;
 
@@ -479,15 +492,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (_backendStatus != null) ...[
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: (statusColor ?? AppColors.textSecondary).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: (statusColor ?? AppColors.textSecondary).withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      _backendStatus!.startsWith('Connected')
+                      isSuccess
                           ? Icons.check_circle_rounded
                           : Icons.error_outline_rounded,
                       size: 16,
@@ -495,12 +513,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
+                      child: SelectableText(
                         _backendStatus!,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: statusColor,
+                          height: 1.4,
                         ),
                       ),
                     ),

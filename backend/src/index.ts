@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { config } from './config.js';
 import { registerHealthRoute } from './routes/health.js';
+import { registerDiagnoseRoute } from './routes/diagnose.js';
 import { registerSearchRoute } from './routes/search.js';
 import { registerPlanWeekRoute } from './routes/plan-week.js';
 
@@ -24,17 +25,53 @@ async function main(): Promise<void> {
 
   await app.register(cors, {
     origin: true, // accept any origin for mobile clients
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+  });
+
+  // Request logging — logs every incoming request with a short summary
+  app.addHook('onRequest', async (req) => {
+    req.log.info(
+      { method: req.method, url: req.url, ua: req.headers['user-agent'] },
+      '→ incoming',
+    );
+  });
+
+  // Response logging — logs status and timing
+  app.addHook('onResponse', async (req, reply) => {
+    req.log.info(
+      {
+        method: req.method,
+        url: req.url,
+        status: reply.statusCode,
+        durationMs: Math.round(reply.elapsedTime),
+      },
+      '← response',
+    );
+  });
+
+  // Global error handler — ensures we always return a readable JSON body
+  app.setErrorHandler((err, req, reply) => {
+    req.log.error({ err }, 'unhandled error');
+    reply.status(500).send({
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : String(err),
+    });
   });
 
   await registerHealthRoute(app);
+  await registerDiagnoseRoute(app);
   await registerSearchRoute(app);
   await registerPlanWeekRoute(app);
 
   app.get('/', async () => ({
     name: 'Recimo API',
     version: '0.1.0',
-    endpoints: ['/health', 'POST /api/search', 'POST /api/plan-week'],
+    endpoints: [
+      'GET /health',
+      'GET /api/diagnose',
+      'POST /api/search',
+      'POST /api/plan-week',
+    ],
   }));
 
   try {

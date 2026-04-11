@@ -102,6 +102,30 @@ class RecipeSearchService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  /// Deep diagnose — actually tests OpenAI and Serper keys.
+  /// Much slower than /health but tells you if the keys actually work.
+  Future<Map<String, dynamic>> diagnose() async {
+    _assertBackendConfigured();
+    final uri = Uri.parse('$_backendUrl/api/diagnose');
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw RecipeSearchException(
+          statusCode: response.statusCode,
+          message: _extractErrorMessage(response.body),
+        );
+      }
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } on RecipeSearchException {
+      rethrow;
+    } catch (e) {
+      throw RecipeSearchException(
+        statusCode: 0,
+        message: _friendlyNetworkError(e),
+      );
+    }
+  }
+
   void _assertBackendConfigured() {
     if (_backendUrl.isEmpty) {
       throw RecipeSearchException(
