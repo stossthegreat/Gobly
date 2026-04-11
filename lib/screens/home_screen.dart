@@ -5,6 +5,7 @@ import '../widgets/recipe_card.dart';
 import '../services/user_profile_service.dart';
 import '../services/saved_recipes_service.dart';
 import '../services/transcribe_service.dart';
+import '../widgets/week_plan_prompt_sheet.dart';
 import 'settings_screen.dart';
 import 'create_recipe_screen.dart';
 import 'search_results_screen.dart';
@@ -410,7 +411,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _runAgentSearch('Plan my week, balanced meals'),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            showWeekPlanPromptSheet(context);
+          },
           borderRadius: BorderRadius.circular(16),
           child: Container(
             width: double.infinity,

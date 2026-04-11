@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../models/week_plan.dart';
 import '../services/recipe_search_service.dart';
 import '../services/meal_plan_service.dart';
+import '../widgets/recipe_detail_sheet.dart';
 
 /// Fired when the user asks to plan a week.
 /// Shows a pulsing loading state, calls /api/plan-week, auto-saves the
@@ -57,8 +58,9 @@ class _WeekPlanResultScreenState extends State<WeekPlanResultScreen>
 
   Future<WeekPlanResponse> _run() async {
     final result = await RecipeSearchService.instance.planWeek(widget.prompt);
-    // Auto-commit to the planner
-    await MealPlanService.instance.setAll(result.toMealPlanMap());
+    // Auto-commit to the planner with FULL recipe data attached so
+    // every meal in the planner can open the recipe detail sheet
+    await MealPlanService.instance.setAll(result.toPlannedMealMap());
     return result;
   }
 
@@ -459,77 +461,148 @@ class _WeekPlanResultScreenState extends State<WeekPlanResultScreen>
               final mealType = _mealTypes[mealIndex];
               final meal = dayMeals[mealType];
               final isLast = mealIndex == 2;
-              return Container(
-                decoration: BoxDecoration(
-                  border: !isLast
-                      ? const Border(
-                          bottom: BorderSide(
-                            color: AppColors.borderLight,
-                            width: 1,
+              final hasRecipe = meal?.recipe != null;
+              return InkWell(
+                onTap: hasRecipe
+                    ? () => showRecipeDetailSheet(context, meal!.recipe!)
+                    : null,
+                borderRadius: isLast
+                    ? const BorderRadius.vertical(
+                        bottom: Radius.circular(20),
+                      )
+                    : BorderRadius.zero,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: !isLast
+                        ? const Border(
+                            bottom: BorderSide(
+                              color: AppColors.borderLight,
+                              width: 1,
+                            ),
+                          )
+                        : null,
+                  ),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Image thumbnail if we have one
+                      if (hasRecipe && meal!.recipe!.image.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            meal.recipe!.image,
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 56,
+                              height: 56,
+                              color: _mealColors[mealIndex].withValues(alpha: 0.12),
+                              child: Icon(
+                                _mealIcons[mealIndex],
+                                size: 22,
+                                color: _mealColors[mealIndex],
+                              ),
+                            ),
                           ),
                         )
-                      : null,
-                ),
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: _mealColors[mealIndex].withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Icon(
-                        _mealIcons[mealIndex],
-                        size: 17,
-                        color: _mealColors[mealIndex],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            mealType,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _mealColors[mealIndex],
-                              letterSpacing: 0.5,
-                            ),
+                      else
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _mealColors[mealIndex].withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(9),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            meal?.name.isNotEmpty == true
-                                ? meal!.name
-                                : '(not generated)',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: meal?.name.isNotEmpty == true
-                                  ? AppColors.textPrimary
-                                  : AppColors.textHint,
-                              height: 1.3,
-                              fontStyle: meal?.name.isNotEmpty == true
-                                  ? FontStyle.normal
-                                  : FontStyle.italic,
-                            ),
+                          child: Icon(
+                            _mealIcons[mealIndex],
+                            size: 17,
+                            color: _mealColors[mealIndex],
                           ),
-                        ],
+                        ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              mealType,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _mealColors[mealIndex],
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              meal?.name.isNotEmpty == true
+                                  ? meal!.name
+                                  : '(not generated)',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: meal?.name.isNotEmpty == true
+                                    ? AppColors.textPrimary
+                                    : AppColors.textHint,
+                                height: 1.3,
+                                fontStyle: meal?.name.isNotEmpty == true
+                                    ? FontStyle.normal
+                                    : FontStyle.italic,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (hasRecipe) ...[
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  if (meal!.recipe!.rating.value > 0) ...[
+                                    Icon(
+                                      Icons.star_rounded,
+                                      size: 12,
+                                      color: AppColors.star,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      meal.recipe!.rating.value.toStringAsFixed(1),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      meal.recipe!.source.name,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.primary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                    if (meal?.recipe != null) ...[
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.check_circle_rounded,
-                        size: 16,
-                        color: AppColors.primary.withValues(alpha: 0.6),
-                      ),
+                      if (hasRecipe) ...[
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: AppColors.textHint,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               );
             }),

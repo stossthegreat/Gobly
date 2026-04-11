@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../models/planned_meal.dart';
 import '../services/meal_plan_service.dart';
+import '../widgets/recipe_detail_sheet.dart';
+import '../widgets/week_plan_prompt_sheet.dart';
 import 'settings_screen.dart';
-import 'week_plan_result_screen.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -183,7 +185,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         child: InkWell(
           onTap: () {
             HapticFeedback.mediumImpact();
-            _showAiPlanPromptSheet();
+            showWeekPlanPromptSheet(context);
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
@@ -279,7 +281,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Day header
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
               child: Row(
@@ -315,17 +316,16 @@ class _PlannerScreenState extends State<PlannerScreen> {
               ),
             ),
             const Divider(height: 1, color: AppColors.borderLight),
-            // Meal slots
             ...List.generate(3, (mealIndex) {
               final mealKey = '${day}_${_mealTypes[mealIndex]}';
-              final mealName = MealPlanService.instance.get(mealKey);
+              final meal = MealPlanService.instance.get(mealKey);
               final isLast = mealIndex == 2;
               return _buildMealSlot(
                 mealKey,
                 _mealTypes[mealIndex],
                 _mealIcons[mealIndex],
                 _mealColors[mealIndex],
-                mealName,
+                meal,
                 isLast,
               );
             }),
@@ -340,17 +340,26 @@ class _PlannerScreenState extends State<PlannerScreen> {
     String mealType,
     IconData icon,
     Color color,
-    String? recipeName,
+    PlannedMeal? meal,
     bool isLast,
   ) {
-    final isEmpty = recipeName == null;
+    final isEmpty = meal == null;
+    final hasRecipe = meal?.hasRecipe ?? false;
+
     return InkWell(
       onTap: () {
         if (isEmpty) {
           _showAddMealSheet(mealKey, mealType);
+        } else if (hasRecipe) {
+          // Show the full recipe detail sheet — image, ingredients, steps
+          showRecipeDetailSheet(context, meal.recipe!);
         } else {
-          _showMealOptions(mealKey, mealType, recipeName);
+          // Manual meal — show edit/remove options
+          _showMealOptions(mealKey, mealType, meal.name);
         }
+      },
+      onLongPress: () {
+        if (!isEmpty) _showMealOptions(mealKey, mealType, meal.name);
       },
       borderRadius: isLast
           ? const BorderRadius.vertical(bottom: Radius.circular(20))
@@ -366,25 +375,32 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 )
               : null,
         ),
-        padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+        padding: EdgeInsets.fromLTRB(
+          hasRecipe ? 14 : 18,
+          hasRecipe ? 12 : 14,
+          14,
+          hasRecipe ? 12 : 14,
+        ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(9),
+            if (hasRecipe)
+              _buildRecipeThumbnail(meal!.recipe!.image, color)
+            else
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, size: 17, color: color),
               ),
-              child: Icon(icon, size: 17, color: color),
-            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Meal type label
                   Text(
                     mealType,
                     style: TextStyle(
@@ -395,7 +411,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // Meal name below the label
                   if (isEmpty)
                     Text(
                       'Tap to add',
@@ -408,14 +423,71 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     )
                   else
                     Text(
-                      recipeName,
+                      meal.name,
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                         height: 1.3,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  if (hasRecipe) ...[
+                    const SizedBox(height: 3),
+                    Builder(builder: (_) {
+                      final recipe = meal!.recipe!;
+                      return Row(
+                        children: [
+                          if (recipe.rating.value > 0) ...[
+                            Icon(
+                              Icons.star_rounded,
+                              size: 12,
+                              color: AppColors.star,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              recipe.rating.value.toStringAsFixed(1),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          if (recipe.time.display.isNotEmpty) ...[
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 11,
+                              color: AppColors.textHint,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              recipe.time.display,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Flexible(
+                            child: Text(
+                              recipe.source.name,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.primary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
                 ],
               ),
             ),
@@ -428,11 +500,50 @@ class _PlannerScreenState extends State<PlannerScreen> {
               )
             else
               Icon(
-                Icons.more_vert_rounded,
-                size: 18,
+                hasRecipe
+                    ? Icons.chevron_right_rounded
+                    : Icons.more_vert_rounded,
+                size: 20,
                 color: AppColors.textHint,
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecipeThumbnail(String imageUrl, Color tintColor) {
+    if (imageUrl.isEmpty) {
+      return Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: tintColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.restaurant_rounded,
+          size: 24,
+          color: tintColor,
+        ),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        imageUrl,
+        width: 56,
+        height: 56,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 56,
+          height: 56,
+          color: tintColor.withValues(alpha: 0.12),
+          child: Icon(
+            Icons.restaurant_rounded,
+            size: 24,
+            color: tintColor,
+          ),
         ),
       ),
     );
@@ -506,12 +617,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide:
+                        const BorderSide(color: AppColors.primary, width: 1.5),
                   ),
                 ),
                 onSubmitted: (value) async {
                   if (value.trim().isNotEmpty) {
-                    await MealPlanService.instance.setMeal(mealKey, value.trim());
+                    await MealPlanService.instance
+                        .setMeal(mealKey, value.trim());
                     if (!context.mounted) return;
                     Navigator.pop(context);
                     HapticFeedback.lightImpact();
@@ -652,186 +765,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
-  void _showAiPlanPromptSheet() {
-    final controller = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderLight,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Plan my week',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Describe the kind of week you want',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  hintText: 'e.g. "Mediterranean, quick meals"',
-                  hintStyle: TextStyle(color: AppColors.textHint),
-                  prefixIcon: const Icon(
-                    Icons.auto_awesome_rounded,
-                    color: AppColors.primary,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 1.5),
-                  ),
-                ),
-                onSubmitted: (value) {
-                  if (value.trim().isNotEmpty) {
-                    Navigator.pop(context);
-                    _fireWeekPlan(value.trim());
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              // Quick prompt chips
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildQuickChip('Mediterranean', controller),
-                  _buildQuickChip('High protein', controller),
-                  _buildQuickChip('Quick meals', controller),
-                  _buildQuickChip('Vegetarian', controller),
-                  _buildQuickChip('Low carb', controller),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    final text = controller.text.trim();
-                    if (text.isNotEmpty) {
-                      Navigator.pop(context);
-                      _fireWeekPlan(text);
-                    }
-                  },
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                  label: const Text(
-                    'Generate week',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickChip(String text, TextEditingController controller) {
-    return GestureDetector(
-      onTap: () {
-        controller.text = text;
-        HapticFeedback.selectionClick();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.primarySoft,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _fireWeekPlan(String prompt) {
-    HapticFeedback.mediumImpact();
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => WeekPlanResultScreen(prompt: prompt),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.05),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   void _showClearConfirmation() {
     showDialog(
       context: context,
@@ -842,7 +775,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () async {

@@ -1,3 +1,4 @@
+import 'planned_meal.dart';
 import 'recipe_result.dart';
 
 /// Flutter-side model matching backend /api/plan-week response.
@@ -34,9 +35,10 @@ class WeekPlanResponse {
     );
   }
 
-  /// Flatten into "Mon_Breakfast" → meal name map for MealPlanService.setAll.
-  /// Normalizes day keys to our 3-char format (Mon, Tue, ...).
-  Map<String, String> toMealPlanMap() {
+  /// Flatten into a PlannedMeal map keyed "Mon_Breakfast", "Tue_Lunch",
+  /// etc — preserves the full recipe data so the planner can display
+  /// images, ingredients, and instructions for each slot.
+  Map<String, PlannedMeal> toPlannedMealMap() {
     const dayAliases = {
       'monday': 'Mon',
       'tuesday': 'Tue',
@@ -54,12 +56,13 @@ class WeekPlanResponse {
       'sun': 'Sun',
     };
 
-    final out = <String, String>{};
+    final out = <String, PlannedMeal>{};
     plan.forEach((day, meals) {
       final normalizedDay = dayAliases[day.toLowerCase()] ?? day;
       meals.forEach((mealType, meal) {
         if (meal.name.isNotEmpty) {
-          out['${normalizedDay}_$mealType'] = meal.name;
+          out['${normalizedDay}_$mealType'] =
+              PlannedMeal(name: meal.name, recipe: meal.recipe);
         }
       });
     });
