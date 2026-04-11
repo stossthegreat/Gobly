@@ -11,10 +11,16 @@ class AppSettingsService extends ChangeNotifier {
 
   static const _backendUrlKey = 'recimo_backend_url_v1';
 
+  /// Production Railway URL — baked in so new installs work out of the box.
+  /// Can still be overridden at runtime (Settings) or at build time
+  /// (--dart-define=BACKEND_URL=...).
+  static const String _productionDefault =
+      'https://recimobackend-production.up.railway.app';
+
   /// Compile-time default (overridable with --dart-define=BACKEND_URL=...)
   static const String _compileTimeDefault = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: '',
+    defaultValue: _productionDefault,
   );
 
   String _backendUrl = '';
