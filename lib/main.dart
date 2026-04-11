@@ -7,6 +7,7 @@ import 'screens/grocery_screen.dart';
 import 'services/user_profile_service.dart';
 import 'services/meal_plan_service.dart';
 import 'services/saved_recipes_service.dart';
+import 'services/app_settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,7 @@ void main() async {
     UserProfileService.instance.load(),
     MealPlanService.instance.load(),
     SavedRecipesService.instance.load(),
+    AppSettingsService.instance.load(),
   ]);
   runApp(const RecimoApp());
 }

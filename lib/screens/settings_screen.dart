@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
+import '../services/app_settings_service.dart';
+import '../services/recipe_search_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,6 +16,9 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late UserProfile _draft;
   final _nameController = TextEditingController();
+  final _backendController = TextEditingController();
+  String? _backendStatus;
+  bool _backendTesting = false;
 
   // Common options for chip selectors
   static const _commonAllergies = [
@@ -60,12 +65,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _draft = UserProfileService.instance.profile;
     _nameController.text = _draft.name;
+    _backendController.text = AppSettingsService.instance.backendUrl;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _backendController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveBackendUrl() async {
+    await AppSettingsService.instance.setBackendUrl(_backendController.text);
+    _backendController.text = AppSettingsService.instance.backendUrl;
+    if (!mounted) return;
+    setState(() => _backendStatus = null);
+    HapticFeedback.lightImpact();
+  }
+
+  Future<void> _testBackend() async {
+    await _saveBackendUrl();
+    if (AppSettingsService.instance.backendUrl.isEmpty) {
+      setState(() => _backendStatus = 'Enter a URL first');
+      return;
+    }
+    setState(() {
+      _backendTesting = true;
+      _backendStatus = null;
+    });
+    try {
+      final health = await RecipeSearchService.instance.checkHealth();
+      final config = (health['config'] as Map?)?.cast<String, dynamic>();
+      final ready = config?['ready'] == true;
+      setState(() {
+        _backendStatus = ready
+            ? 'Connected. Agent ready.'
+            : 'Connected but AI keys not set on backend.';
+      });
+    } catch (e) {
+      setState(() => _backendStatus = 'Could not reach: $e');
+    } finally {
+      if (mounted) setState(() => _backendTesting = false);
+    }
   }
 
   Future<void> _save() async {
@@ -99,6 +140,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 16),
+                  _buildBackendCard(),
                   const SizedBox(height: 16),
                   _buildIntroCard(),
                   const SizedBox(height: 24),
@@ -264,6 +307,181 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackendCard() {
+    final statusColor = _backendStatus == null
+        ? null
+        : _backendStatus!.startsWith('Connected')
+            ? AppColors.primary
+            : AppColors.error;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            width: 1.3,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.cloud_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Backend URL',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Your Railway URL — required for AI search',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _backendController,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: InputDecoration(
+                hintText: 'https://your-app.up.railway.app',
+                hintStyle: TextStyle(color: AppColors.textHint, fontSize: 13),
+                prefixIcon: const Icon(Icons.link_rounded, color: AppColors.primary),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.content_paste_rounded, color: AppColors.textHint),
+                  onPressed: () async {
+                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                    if (data?.text != null) {
+                      _backendController.text = data!.text!;
+                    }
+                  },
+                ),
+                filled: true,
+                fillColor: AppColors.background,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              style: const TextStyle(fontSize: 13),
+              onChanged: (_) => setState(() => _backendStatus = null),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: ElevatedButton.icon(
+                      onPressed: _backendTesting ? null : _testBackend,
+                      icon: _backendTesting
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.bolt_rounded, size: 18),
+                      label: Text(
+                        _backendTesting ? 'Testing...' : 'Save & Test',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_backendStatus != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (statusColor ?? AppColors.textSecondary).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _backendStatus!.startsWith('Connected')
+                          ? Icons.check_circle_rounded
+                          : Icons.error_outline_rounded,
+                      size: 16,
+                      color: statusColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _backendStatus!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../theme/app_theme.dart';
 import '../widgets/recipe_card.dart';
 import '../services/user_profile_service.dart';
@@ -15,9 +16,13 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
+  bool _listening = false;
+  late AnimationController _micPulseController;
 
   // Mock trending data
   final List<Map<String, dynamic>> _trendingRecipes = [
@@ -64,10 +69,110 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _micPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onError: (error) {
+          if (mounted) {
+            setState(() => _listening = false);
+            _micPulseController.stop();
+          }
+        },
+        onStatus: (status) {
+          if (status == 'done' || status == 'notListening') {
+            if (mounted) {
+              setState(() => _listening = false);
+              _micPulseController.stop();
+            }
+          }
+        },
+      );
+    } catch (_) {
+      _speechAvailable = false;
+    }
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     _searchFocus.dispose();
+    _micPulseController.dispose();
+    _speech.cancel();
     super.dispose();
+  }
+
+  Future<void> _toggleListening() async {
+    HapticFeedback.mediumImpact();
+
+    if (_listening) {
+      await _speech.stop();
+      setState(() => _listening = false);
+      _micPulseController.stop();
+      // Auto-submit if we captured anything
+      if (_searchController.text.trim().isNotEmpty) {
+        _runAgentSearch(_searchController.text.trim());
+      }
+      return;
+    }
+
+    if (!_speechAvailable) {
+      // Re-initialize in case permission was just granted
+      await _initSpeech();
+      if (!_speechAvailable) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Microphone not available. Grant mic permission in app settings.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() {
+      _listening = true;
+      _searchController.clear();
+    });
+    _micPulseController.repeat(reverse: true);
+
+    await _speech.listen(
+      onResult: (result) {
+        if (!mounted) return;
+        setState(() {
+          _searchController.text = result.recognizedWords;
+        });
+        if (result.finalResult) {
+          _micPulseController.stop();
+          setState(() => _listening = false);
+          if (result.recognizedWords.trim().isNotEmpty) {
+            _runAgentSearch(result.recognizedWords.trim());
+          }
+        }
+      },
+      listenFor: const Duration(seconds: 15),
+      pauseFor: const Duration(seconds: 2),
+      localeId: 'en_US',
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+      ),
+    );
   }
 
   @override
@@ -588,12 +693,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: TextField(
                           controller: _searchController,
                           focusNode: _searchFocus,
-                          decoration: const InputDecoration(
-                            hintText: '"I want mac and cheese..."',
+                          decoration: InputDecoration(
+                            hintText: _listening
+                                ? 'Listening...'
+                                : '"I want mac and cheese..."',
                             hintStyle: TextStyle(
-                              color: AppColors.textHint,
+                              color: _listening
+                                  ? AppColors.primary
+                                  : AppColors.textHint,
                               fontSize: 14,
-                              fontWeight: FontWeight.w400,
+                              fontWeight: _listening
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                             ),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
@@ -617,47 +728,47 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      HapticFeedback.mediumImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Voice search coming soon'),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+              AnimatedBuilder(
+                animation: _micPulseController,
+                builder: (context, _) {
+                  final pulse = _listening ? _micPulseController.value : 0.0;
+                  return Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: _listening
+                            ? const [Color(0xFFE53935), Color(0xFFEF5350)]
+                            : const [Color(0xFF2E7D32), Color(0xFF43A047)],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_listening
+                                  ? const Color(0xFFE53935)
+                                  : AppColors.primary)
+                              .withValues(alpha: 0.3 + pulse * 0.3),
+                          blurRadius: 12 + pulse * 12,
+                          offset: const Offset(0, 4),
                         ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(24),
-                    child: const Icon(
-                      Icons.mic_rounded,
-                      color: Colors.white,
-                      size: 22,
+                      ],
                     ),
-                  ),
-                ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _toggleListening,
+                        borderRadius: BorderRadius.circular(24),
+                        child: Icon(
+                          _listening ? Icons.stop_rounded : Icons.mic_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),

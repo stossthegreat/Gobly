@@ -2,75 +2,130 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/recipe_result.dart';
 import 'user_profile_service.dart';
+import 'app_settings_service.dart';
 
 /// Calls the Recimo backend for AI-powered recipe search.
-/// Configure BACKEND_URL via --dart-define at build time, or it
-/// falls back to localhost for dev.
+/// Reads the backend URL at call time from AppSettingsService so the user
+/// can configure it at runtime in the settings screen.
 class RecipeSearchService {
   RecipeSearchService._();
   static final RecipeSearchService instance = RecipeSearchService._();
 
-  // Override at build time:
-  //   flutter run --dart-define=BACKEND_URL=https://recimo.up.railway.app
-  static const String _backendUrl = String.fromEnvironment(
-    'BACKEND_URL',
-    defaultValue: 'http://localhost:3000',
-  );
+  String get _backendUrl => AppSettingsService.instance.backendUrl;
 
   /// Search for recipes matching [query].
   /// Automatically includes the user's profile as context so the agent
   /// respects allergies, diet, dislikes.
   Future<SearchResponse> search(String query) async {
+    _assertBackendConfigured();
     final userContext = UserProfileService.instance.profile.toAgentContext();
 
     final uri = Uri.parse('$_backendUrl/api/search');
-    final response = await http
-        .post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'query': query,
-            'userContext': userContext,
-          }),
-        )
-        .timeout(const Duration(seconds: 20));
+    try {
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'query': query,
+              'userContext': userContext,
+            }),
+          )
+          .timeout(const Duration(seconds: 25));
 
-    if (response.statusCode != 200) {
+      if (response.statusCode != 200) {
+        throw RecipeSearchException(
+          statusCode: response.statusCode,
+          message: _extractErrorMessage(response.body),
+        );
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return SearchResponse.fromJson(data);
+    } on RecipeSearchException {
+      rethrow;
+    } catch (e) {
       throw RecipeSearchException(
-        statusCode: response.statusCode,
-        message: _extractErrorMessage(response.body),
+        statusCode: 0,
+        message: 'Could not reach backend at $_backendUrl.\n${_friendlyNetworkError(e)}',
       );
     }
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return SearchResponse.fromJson(data);
   }
 
   /// Generate a 7-day meal plan with real recipes.
-  /// Returns a map of day → meal → {name, recipe}.
   Future<Map<String, dynamic>> planWeek(String prompt) async {
+    _assertBackendConfigured();
     final userContext = UserProfileService.instance.profile.toAgentContext();
 
     final uri = Uri.parse('$_backendUrl/api/plan-week');
-    final response = await http
-        .post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'prompt': prompt,
-            'userContext': userContext,
-          }),
-        )
-        .timeout(const Duration(seconds: 45));
+    try {
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'prompt': prompt,
+              'userContext': userContext,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
 
+      if (response.statusCode != 200) {
+        throw RecipeSearchException(
+          statusCode: response.statusCode,
+          message: _extractErrorMessage(response.body),
+        );
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } on RecipeSearchException {
+      rethrow;
+    } catch (e) {
+      throw RecipeSearchException(
+        statusCode: 0,
+        message: 'Could not reach backend at $_backendUrl.\n${_friendlyNetworkError(e)}',
+      );
+    }
+  }
+
+  /// Quick health check to verify the backend is reachable.
+  Future<Map<String, dynamic>> checkHealth() async {
+    _assertBackendConfigured();
+    final uri = Uri.parse('$_backendUrl/health');
+    final response = await http.get(uri).timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw RecipeSearchException(
         statusCode: response.statusCode,
-        message: _extractErrorMessage(response.body),
+        message: 'Health check failed',
       );
     }
-
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  void _assertBackendConfigured() {
+    if (_backendUrl.isEmpty) {
+      throw RecipeSearchException(
+        statusCode: 0,
+        message: 'Backend URL not set. Open Settings and paste your Railway URL.',
+      );
+    }
+  }
+
+  String _friendlyNetworkError(Object e) {
+    final msg = e.toString();
+    if (msg.contains('Operation not permitted') || msg.contains('cleartext')) {
+      return 'Android is blocking HTTP. Your backend URL must start with https://';
+    }
+    if (msg.contains('Failed host lookup')) {
+      return 'Could not resolve the hostname. Is the URL correct?';
+    }
+    if (msg.contains('TimeoutException') || msg.contains('timed out')) {
+      return 'The backend took too long to respond.';
+    }
+    if (msg.contains('Connection refused')) {
+      return 'Connection refused — is the server running?';
+    }
+    return msg;
   }
 
   String _extractErrorMessage(String body) {
@@ -90,5 +145,5 @@ class RecipeSearchException implements Exception {
   RecipeSearchException({required this.statusCode, required this.message});
 
   @override
-  String toString() => 'RecipeSearchException($statusCode): $message';
+  String toString() => message;
 }

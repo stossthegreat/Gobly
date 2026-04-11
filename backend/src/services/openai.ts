@@ -1,7 +1,14 @@
 import OpenAI from 'openai';
-import { config } from '../config.js';
+import { config, assertKeysConfigured } from '../config.js';
 
-const client = new OpenAI({ apiKey: config.openaiApiKey });
+let _client: OpenAI | null = null;
+function getClient(): OpenAI {
+  assertKeysConfigured();
+  if (!_client) {
+    _client = new OpenAI({ apiKey: config.openaiApiKey });
+  }
+  return _client;
+}
 
 /**
  * Normalize a raw user query into a web-search-friendly phrase.
@@ -28,7 +35,7 @@ Input: "impress my date" → "elegant date night dinner recipes"`;
     ? `User context:\n${userContext}\n\nUser request: ${query}`
     : query;
 
-  const response = await client.chat.completions.create({
+  const response = await getClient().chat.completions.create({
     model: config.openaiModel,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -72,7 +79,7 @@ Return format:
     ? `User context:\n${userContext}\n\nUser request: ${request}`
     : request;
 
-  const response = await client.chat.completions.create({
+  const response = await getClient().chat.completions.create({
     model: config.openaiModel,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -108,7 +115,7 @@ export async function extractRecipeFromHtmlWithLlm(
     .trim()
     .slice(0, 6000);
 
-  const response = await client.chat.completions.create({
+  const response = await getClient().chat.completions.create({
     model: config.openaiModel,
     messages: [
       {

@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Recimo uses your microphone to let you speak your recipe queries.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Recimo uses speech recognition to turn your voice into recipe searches.</string>
 </dict>
 </plist>
