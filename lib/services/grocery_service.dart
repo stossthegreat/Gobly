@@ -77,19 +77,61 @@ class GroceryService extends ChangeNotifier {
     for (final ingredient in ingredients) {
       final trimmed = ingredient.trim();
       if (trimmed.isEmpty) continue;
-      _items.add(
-        GroceryItem(
-          id: 'g_${counter++}',
-          name: trimmed,
-          category: IngredientCategorizer.categorize(trimmed),
-          checked: false,
-          sourceMealKey: mealKey,
-          sourceMealName: mealName,
-        ),
+
+      // Smart merge: check if an existing auto item has the same core
+      // ingredient. If so, skip adding a duplicate.
+      final normalized = _normalizeIngredient(trimmed);
+      final existingIndex = _items.indexWhere(
+        (i) => i.isAuto && _normalizeIngredient(i.name) == normalized,
       );
+
+      if (existingIndex >= 0) {
+        // Same ingredient already exists from another meal — keep the
+        // existing one but note both meals use it
+        final existing = _items[existingIndex];
+        final combinedSource = existing.sourceMealName != null &&
+                !existing.sourceMealName!.contains(mealName)
+            ? '${existing.sourceMealName} + $mealName'
+            : existing.sourceMealName ?? mealName;
+        _items[existingIndex] = existing.copyWith(
+          sourceMealName: combinedSource,
+        );
+      } else {
+        _items.add(
+          GroceryItem(
+            id: 'g_${counter++}',
+            name: trimmed,
+            category: IngredientCategorizer.categorize(trimmed),
+            checked: false,
+            sourceMealKey: mealKey,
+            sourceMealName: mealName,
+          ),
+        );
+      }
     }
     notifyListeners();
     await _save();
+  }
+
+  /// Strip quantities and normalize for dedup comparison.
+  /// "2 cups flour" → "flour"
+  /// "1 large lemon, juiced" → "large lemon juiced"
+  /// "salt and pepper" → "salt and pepper"
+  String _normalizeIngredient(String ingredient) {
+    var s = ingredient.toLowerCase().trim();
+    // Strip leading numbers, fractions, units
+    s = s.replaceAll(RegExp(r'^[\d\s/.½¼¾⅓⅔]+'), '');
+    // Strip common units
+    s = s.replaceAll(
+      RegExp(
+        r'\b(cups?|tablespoons?|tbsp|teaspoons?|tsp|ounces?|oz|pounds?|lbs?|grams?|g|ml|liters?|l|pinch|dash|cloves?|cans?|packages?|bunch|head|stalk|medium|large|small)\b',
+      ),
+      '',
+    );
+    // Strip punctuation, collapse spaces
+    s = s.replaceAll(RegExp(r'[,.()\-]'), ' ');
+    s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return s;
   }
 
   /// Remove all auto items tied to a specific meal slot.

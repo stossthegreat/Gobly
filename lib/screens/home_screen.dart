@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -6,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/app_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/recipe_card.dart';
-import '../services/user_profile_service.dart';
 import '../services/saved_recipes_service.dart';
 import '../services/transcribe_service.dart';
 import '../services/cookbooks_service.dart';
@@ -270,51 +270,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return ListenableBuilder(
-      listenable: UserProfileService.instance,
-      builder: (context, _) {
-        final name = UserProfileService.instance.profile.name;
-        return Container(
-          color: AppColors.background,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 16),
-              child: Row(
+    return Container(
+      color: AppColors.background,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 12, 16),
+          child: Row(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Image.asset(
-                            'assets/logo.png',
-                            width: 40,
-                            height: 40,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            name.isEmpty ? 'Gobly' : 'Hi, $name',
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primary,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
+                      Image.asset(
+                        'assets/logo.png',
+                        width: 40,
+                        height: 40,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'What are we cooking today?',
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Gobly',
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.textSecondary,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'What are we cooking today?',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
                   const Spacer(),
                   Container(
                     decoration: BoxDecoration(
@@ -343,8 +339,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
         );
-      },
-    );
   }
 
   void _openSettings(BuildContext context) {
@@ -1550,6 +1544,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// Hero image for saved recipe detail — handles network URLs,
+  /// local file paths, and falls back to emoji gradient.
+  Widget _buildDetailHero(Map<String, dynamic> recipe) {
+    final image = (recipe['image'] ?? '').toString();
+    if (image.startsWith('http')) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Image.network(
+          image,
+          width: double.infinity,
+          height: 200,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildEmojiHero(recipe),
+        ),
+      );
+    }
+    if (image.startsWith('/') && File(image).existsSync()) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Image.file(
+          File(image),
+          width: double.infinity,
+          height: 200,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    return _buildEmojiHero(recipe);
+  }
+
+  Widget _buildEmojiHero(Map<String, dynamic> recipe) {
+    return Container(
+      width: double.infinity,
+      height: 200,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFE8F5E9), Color(0xFFA5D6A7)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Center(
+        child: Text(
+          recipe['emoji'] ?? '\u{1F372}',
+          style: const TextStyle(fontSize: 64),
+        ),
+      ),
+    );
+  }
+
   /// Image-first thumbnail for saved recipes — uses the publisher
   /// image if we have one, falls back to a gradient + emoji.
   Widget _buildSavedThumbnail(Map<String, dynamic> recipe) {
@@ -2329,26 +2374,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Center(
-                    child: Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFFE8F5E9), Color(0xFFA5D6A7)],
-                        ),
-                        borderRadius: BorderRadius.circular(26),
-                      ),
-                      child: Center(
-                        child: Text(
-                          recipe['emoji'] ?? '\u{1F372}',
-                          style: const TextStyle(fontSize: 54),
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Hero image — shows real photo (network or local file),
+                  // falls back to gradient + emoji
+                  _buildDetailHero(recipe),
                   const SizedBox(height: 20),
                   Center(
                     child: Text(

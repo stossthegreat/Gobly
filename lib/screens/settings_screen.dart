@@ -159,12 +159,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildIntroCard(),
                   const SizedBox(height: 24),
                   _buildSection(
-                    'Your Name',
-                    Icons.person_rounded,
-                    _buildNameField(),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildSection(
                     'Allergies',
                     Icons.warning_rounded,
                     _buildChipGrid(
@@ -708,6 +702,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildNameField() {
     return TextField(
       controller: _nameController,
