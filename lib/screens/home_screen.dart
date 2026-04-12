@@ -8,7 +8,10 @@ import '../services/saved_recipes_service.dart';
 import '../services/transcribe_service.dart';
 import '../services/cookbooks_service.dart';
 import '../services/share_service.dart';
+import '../services/usage_service.dart';
+import '../widgets/rating_dialog.dart';
 import 'settings_screen.dart';
+import 'paywall_screen.dart';
 import 'create_recipe_screen.dart';
 import 'search_results_screen.dart';
 import 'week_plan_result_screen.dart';
@@ -1992,8 +1995,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _runAgentSearch(String query) {
     HapticFeedback.mediumImpact();
+    final usage = UsageService.instance;
 
     final isWeekPlan = _looksLikeWeekPlan(query);
+
+    // Check limits — show paywall if exhausted
+    if (isWeekPlan && !usage.canPlanWeek) {
+      _showPaywall('You\'ve used your free week plan');
+      return;
+    }
+    if (!isWeekPlan && !usage.canSearch) {
+      _showPaywall('You\'ve used ${UsageService.maxFreeSearches}/${UsageService.maxFreeSearches} free AI searches');
+      return;
+    }
+
+    // Record usage BEFORE navigating so the count is accurate
+    if (isWeekPlan) {
+      usage.recordPlan();
+    } else {
+      usage.recordSearch();
+    }
+
     final pageBuilder = isWeekPlan
         ? (BuildContext _, Animation<double> __, Animation<double> ___) =>
             WeekPlanResultScreen(prompt: query)
@@ -2009,6 +2031,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: SlideTransition(
               position: Tween<Offset>(
                 begin: const Offset(0, 0.05),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            ),
+          );
+        },
+      ),
+    ).then((_) {
+      // After returning from search/plan, check if we should show rating
+      if (usage.shouldShowRating && mounted) {
+        showRatingDialog(context);
+      }
+    });
+  }
+
+  void _showPaywall(String triggerText) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => PaywallScreen(triggerText: triggerText),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.1),
                 end: Offset.zero,
               ).animate(CurvedAnimation(
                 parent: animation,

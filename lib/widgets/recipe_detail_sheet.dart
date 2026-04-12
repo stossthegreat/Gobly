@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import '../models/recipe_result.dart';
 import '../services/saved_recipes_service.dart';
 import '../services/share_service.dart';
+import '../services/usage_service.dart';
+import '../screens/paywall_screen.dart';
 
 /// Shows a full-screen recipe detail bottom sheet with hero image,
 /// ingredients, numbered instructions, and Save / Close actions.
@@ -21,11 +23,72 @@ void showRecipeDetailSheet(
   );
 }
 
-class _RecipeDetailSheet extends StatelessWidget {
+class _RecipeDetailSheet extends StatefulWidget {
   final RecipeResult recipe;
   final bool canSave;
 
   const _RecipeDetailSheet({required this.recipe, required this.canSave});
+
+  @override
+  State<_RecipeDetailSheet> createState() => _RecipeDetailSheetState();
+}
+
+class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
+  late int _servings;
+  late int _originalServings;
+
+  RecipeResult get recipe => widget.recipe;
+  bool get canSave => widget.canSave;
+
+  @override
+  void initState() {
+    super.initState();
+    _originalServings = recipe.servings ?? 4;
+    _servings = _originalServings;
+  }
+
+  double get _scaleFactor =>
+      _originalServings > 0 ? _servings / _originalServings : 1.0;
+
+  /// Scale an ingredient string by adjusting leading numbers.
+  /// "2 cups flour" at 2x → "4 cups flour"
+  /// "1/2 tsp salt" at 2x → "1 tsp salt"
+  String _scaleIngredient(String ingredient) {
+    if (_scaleFactor == 1.0) return ingredient;
+    // Match leading number patterns: "2", "1.5", "1/2", "1 1/2"
+    final match = RegExp(r'^(\d+(?:\.\d+)?(?:\s*/\s*\d+)?(?:\s+\d+/\d+)?)\s')
+        .firstMatch(ingredient);
+    if (match == null) return ingredient;
+    final numStr = match.group(1)!;
+    final rest = ingredient.substring(match.end);
+    final value = _parseNumber(numStr);
+    if (value == null) return ingredient;
+    final scaled = value * _scaleFactor;
+    return '${_formatNumber(scaled)} $rest';
+  }
+
+  double? _parseNumber(String s) {
+    final cleaned = s.trim();
+    // "1 1/2" pattern
+    final mixed = RegExp(r'^(\d+)\s+(\d+)/(\d+)$').firstMatch(cleaned);
+    if (mixed != null) {
+      return int.parse(mixed.group(1)!) +
+          int.parse(mixed.group(2)!) / int.parse(mixed.group(3)!);
+    }
+    // "1/2" fraction
+    final frac = RegExp(r'^(\d+)/(\d+)$').firstMatch(cleaned);
+    if (frac != null) {
+      return int.parse(frac.group(1)!) / int.parse(frac.group(2)!);
+    }
+    return double.tryParse(cleaned);
+  }
+
+  String _formatNumber(double n) {
+    if (n == n.roundToDouble() && n < 1000) return n.toInt().toString();
+    // Show one decimal place, drop trailing zero
+    final s = n.toStringAsFixed(1);
+    return s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -182,8 +245,14 @@ class _RecipeDetailSheet extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 24),
-                  // Ingredients
-                  const _SectionTitle('Ingredients'),
+                  // Ingredients with scaler
+                  Row(
+                    children: [
+                      const _SectionTitle('Ingredients'),
+                      const Spacer(),
+                      _buildServingsScaler(),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
@@ -227,7 +296,7 @@ class _RecipeDetailSheet extends StatelessWidget {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
-                                        entry.value,
+                                        _scaleIngredient(entry.value),
                                         style: const TextStyle(
                                           fontSize: 14,
                                           color: AppColors.textPrimary,
@@ -425,6 +494,99 @@ class _RecipeDetailSheet extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildServingsScaler() {
+    final isPro = UsageService.instance.isPro;
+    return GestureDetector(
+      onTap: isPro
+          ? null
+          : () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PaywallScreen(
+                    triggerText: 'Ingredient scaling is a Pro feature',
+                  ),
+                ),
+              );
+            },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: isPro
+              ? AppColors.primarySoft
+              : AppColors.background,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isPro
+                ? AppColors.primary.withValues(alpha: 0.3)
+                : AppColors.borderLight,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isPro) ...[
+              Icon(
+                Icons.lock_rounded,
+                size: 12,
+                color: AppColors.textHint,
+              ),
+              const SizedBox(width: 4),
+            ],
+            _buildScalerButton(
+              Icons.remove_rounded,
+              isPro && _servings > 1
+                  ? () => setState(() => _servings--)
+                  : null,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                '$_servings',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: isPro ? AppColors.primary : AppColors.textHint,
+                ),
+              ),
+            ),
+            _buildScalerButton(
+              Icons.add_rounded,
+              isPro && _servings < 20
+                  ? () => setState(() => _servings++)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScalerButton(IconData icon, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: () {
+        if (onTap != null) {
+          onTap();
+          HapticFeedback.selectionClick();
+        }
+      },
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: onTap != null
+              ? AppColors.primarySoft
+              : AppColors.borderLight,
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: onTap != null ? AppColors.primary : AppColors.textHint,
+        ),
       ),
     );
   }

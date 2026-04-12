@@ -10,6 +10,7 @@ import 'services/saved_recipes_service.dart';
 import 'services/app_settings_service.dart';
 import 'services/cookbooks_service.dart';
 import 'services/grocery_service.dart';
+import 'services/usage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,7 @@ void main() async {
     AppSettingsService.instance.load(),
     CookbooksService.instance.load(),
     GroceryService.instance.load(),
+    UsageService.instance.load(),
   ]);
   runApp(const GoblyApp());
 }

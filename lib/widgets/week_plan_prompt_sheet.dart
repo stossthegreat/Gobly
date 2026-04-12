@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../services/usage_service.dart';
 import '../screens/week_plan_result_screen.dart';
+import '../screens/paywall_screen.dart';
 
 /// Shows the "Plan my week" prompt sheet. On submit, navigates to
 /// WeekPlanResultScreen which fires the backend and saves the plan.
+/// If the user has exhausted their free plan, shows the paywall instead.
 void showWeekPlanPromptSheet(BuildContext context) {
+  if (!UsageService.instance.canPlanWeek) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PaywallScreen(
+          triggerText: 'You\'ve used your free week plan',
+        ),
+      ),
+    );
+    return;
+  }
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -35,6 +48,7 @@ class _WeekPlanPromptSheetState extends State<_WeekPlanPromptSheet> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     HapticFeedback.mediumImpact();
+    UsageService.instance.recordPlan();
     Navigator.pop(context);
     Navigator.of(context).push(
       PageRouteBuilder(
