@@ -93,6 +93,34 @@ class RecipeSearchService {
     }
   }
 
+  /// Extract a recipe from a pasted URL via the backend's JSON-LD parser.
+  Future<RecipeResult?> parseUrl(String url) async {
+    _assertBackendConfigured();
+    final uri = Uri.parse('$_backendUrl/api/parse-url');
+    try {
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'url': url}),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode != 200) {
+        return null; // page has no recipe or couldn't be fetched
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final recipeData = data['recipe'];
+      if (recipeData is Map) {
+        return RecipeResult.fromJson(recipeData.cast<String, dynamic>());
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Quick health check to verify the backend is reachable.
   Future<Map<String, dynamic>> checkHealth() async {
     _assertBackendConfigured();

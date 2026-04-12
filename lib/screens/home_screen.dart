@@ -9,6 +9,7 @@ import '../services/transcribe_service.dart';
 import '../services/cookbooks_service.dart';
 import '../services/share_service.dart';
 import '../services/usage_service.dart';
+import '../services/recipe_search_service.dart';
 import '../widgets/rating_dialog.dart';
 import 'settings_screen.dart';
 import 'paywall_screen.dart';
@@ -648,6 +649,95 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         );
       }
     } catch (_) {}
+  }
+
+  Future<void> _extractRecipeFromUrl(String url) async {
+    // Show loading
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(Colors.white),
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Extracting recipe...'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(seconds: 15),
+      ),
+    );
+
+    try {
+      final recipe =
+          await RecipeSearchService.instance.parseUrl(url);
+      messenger.hideCurrentSnackBar();
+      if (!mounted) return;
+
+      if (recipe != null) {
+        // Save it and show the detail sheet
+        await SavedRecipesService.instance.add({
+          'title': recipe.title,
+          'source': recipe.source.name,
+          'sourceUrl': recipe.source.url,
+          'time': recipe.time.display,
+          'emoji': '\u{1F517}',
+          'image': recipe.image,
+          'rating': recipe.rating.value,
+          'ingredients': recipe.ingredients,
+          'steps': recipe.instructions,
+          'category': 'Saved',
+        });
+        if (!mounted) return;
+        HapticFeedback.mediumImpact();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('"${recipe.title}" saved!'),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      } else {
+        // No recipe found — offer manual creation
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text(
+              'No recipe found on that page — try adding it manually',
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            action: SnackBarAction(
+              label: 'Write',
+              onPressed: () => _openCreateRecipe(prefillSource: url),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not extract: $e'),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   void _openCreateRecipe({String? prefillTitle, String? prefillSource}) {
@@ -1825,14 +1915,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               SizedBox(
                 width: double.infinity,
                 height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
+                child: ElevatedButton.icon(
+                  onPressed: () async {
                     final link = controller.text.trim();
-                    if (link.isNotEmpty) {
-                      Navigator.pop(context);
-                      _openCreateRecipe(prefillSource: link);
-                    }
+                    if (link.isEmpty) return;
+                    // Close sheet, show loading, try to extract via agent
+                    Navigator.pop(context);
+                    _extractRecipeFromUrl(link);
                   },
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: const Text(
+                    'Extract recipe',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -1840,10 +1935,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
-                  ),
-                  child: const Text(
-                    'Continue',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),

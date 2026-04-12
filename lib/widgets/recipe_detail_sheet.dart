@@ -105,7 +105,7 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
           child: SingleChildScrollView(
             controller: scrollController,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -371,7 +371,7 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
                       );
                     }),
                   // Action buttons — Share always, Save when applicable
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
                   Row(
                     children: [
                       // Share button — always visible

@@ -8,6 +8,7 @@ import { registerDebugRoute } from './routes/debug.js';
 import { registerSearchRoute } from './routes/search.js';
 import { registerPlanWeekRoute } from './routes/plan-week.js';
 import { registerTranscribeRoute } from './routes/transcribe.js';
+import { registerParseUrlRoute } from './routes/parse-url.js';
 
 async function main(): Promise<void> {
   const app = Fastify({
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
   await registerSearchRoute(app);
   await registerPlanWeekRoute(app);
   await registerTranscribeRoute(app);
+  await registerParseUrlRoute(app);
 
   app.get('/', async () => ({
     name: 'Recimo API',

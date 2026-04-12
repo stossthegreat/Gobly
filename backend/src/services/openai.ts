@@ -75,15 +75,16 @@ export async function generateWeekPlan(
 
   const systemPrompt = `You are a meal planning expert. Generate a ${dayCount}-day meal plan with ${dayCount * 3} specific dish names (one for each breakfast, lunch, and dinner across ${dayCount} days).
 
-Rules:
+CRITICAL RULES:
 - Return ONLY valid JSON, no markdown, no explanation
-- Each dish must be a SPECIFIC, RECOGNIZABLE recipe name that maps to a HIGHLY-RATED version online
-- Prefer iconic, well-known recipes — the kind that have hundreds or thousands of ratings
-- When a celebrity chef has a famous version of a dish, include their name (e.g. "Gordon Ramsay scrambled eggs", "Ina Garten roast chicken", "Jamie Oliver pasta carbonara")
+- Each dish MUST be a SIMPLE, COMMON recipe name that will definitely be found on AllRecipes, NYT Cooking, BBC Good Food, or similar major cooking websites
+- Use PLAIN dish names like "chicken stir fry", "banana pancakes", "greek salad", "spaghetti bolognese", "overnight oats"
+- Do NOT use obscure, creative, or overly specific names that might not have a recipe page online
+- Do NOT include chef names — just the dish itself
 - Respect user allergies, diet, and dislikes STRICTLY
 - Vary cuisines, proteins, and cooking styles across the days
 - Keep dishes realistic for the user's skill level and time preference
-- NEVER invent fusion dishes or made-up combinations — only real recipes that exist on cooking websites
+- NEVER invent fusion dishes or made-up combinations
 
 Output keys must use exactly: ${targetDaysList}
 Each day must have exactly "Breakfast", "Lunch", "Dinner" keys.

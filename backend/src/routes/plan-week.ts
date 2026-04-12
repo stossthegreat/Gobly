@@ -72,15 +72,29 @@ export async function registerPlanWeekRoute(app: FastifyInstance): Promise<void>
         }),
       );
 
-      /** Search + fetch + extract, rejecting recipes without full data */
+      /** Search + fetch + extract with 3 escalating attempts.
+       *  NEVER returns null if there is ANY recipe on the internet for this dish.
+       *  1. Exact dish name
+       *  2. "best {dish} recipe"
+       *  3. Simplified: strip chef name, just the core dish + "easy recipe"
+       */
       async function findCompleteRecipe(name: string): Promise<Recipe | null> {
-        // Try two queries — exact name and then a "best" variant
-        const queries = [name, `best ${name} recipe`];
+        // Simplify: "Gordon Ramsay Scrambled Eggs" → "scrambled eggs easy recipe"
+        const simplified = name
+          .replace(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g, '') // strip likely proper names
+          .trim();
+        const queries = [
+          name,
+          `best ${name} recipe`,
+          simplified !== name && simplified.length > 3
+            ? `${simplified} easy recipe`
+            : `${name} simple recipe`,
+        ];
         for (const query of queries) {
-          const results = await webSearch(query, 8);
+          const results = await webSearch(query, 10);
           const candidates = results
             .filter((r) => r.link && !isBlocked(r.link))
-            .slice(0, 6);
+            .slice(0, 8);
           if (candidates.length === 0) continue;
 
           const fetched = await fetchParallel(candidates.map((c) => c.link));
@@ -88,7 +102,6 @@ export async function registerPlanWeekRoute(app: FastifyInstance): Promise<void>
           for (const result of fetched) {
             if (!result.html) continue;
             const recipe = extractRecipeFromHtml(result.html, result.url);
-            // Only accept recipes with REAL content — at least 2 ingredients + 2 steps
             if (recipe && recipe.ingredients.length >= 2 && recipe.instructions.length >= 2) {
               recipes.push(recipe);
             }
