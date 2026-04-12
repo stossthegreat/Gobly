@@ -102,21 +102,25 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: SingleChildScrollView(
-            controller: scrollController,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.borderLight,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+          child: Column(
+            children: [
+              // Scrollable content
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.borderLight,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -370,14 +374,32 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
                         ),
                       );
                     }),
-                  // Action buttons — Share always, Save when applicable
-                  const SizedBox(height: 18),
-                  Row(
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+              ),
+              // STICKY BOTTOM BAR — always visible, never scrolls away
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Row(
                     children: [
-                      // Share button — always visible
                       Expanded(
                         child: SizedBox(
-                          height: 52,
+                          height: 50,
                           child: OutlinedButton.icon(
                             onPressed: () async {
                               HapticFeedback.lightImpact();
@@ -394,8 +416,7 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppColors.primary,
                               side: BorderSide(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.4),
+                                color: AppColors.primary.withValues(alpha: 0.4),
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
@@ -408,7 +429,7 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: SizedBox(
-                            height: 52,
+                            height: 50,
                             child: ElevatedButton.icon(
                               onPressed: () async {
                                 await SavedRecipesService.instance.add({
@@ -428,27 +449,19 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content:
-                                        Text('${recipe.title} saved!'),
+                                    content: Text('${recipe.title} saved!'),
                                     behavior: SnackBarBehavior.floating,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                     backgroundColor: AppColors.primary,
                                   ),
                                 );
                               },
-                              icon: const Icon(
-                                Icons.bookmark_add_rounded,
-                                size: 18,
-                              ),
+                              icon: const Icon(Icons.bookmark_add_rounded, size: 18),
                               label: const Text(
                                 'Save',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
@@ -464,9 +477,9 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
                       ],
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         );
       },

@@ -82,6 +82,7 @@ CRITICAL RULES:
 - Do NOT use obscure, creative, or overly specific names that might not have a recipe page online
 - Do NOT include chef names — just the dish itself
 - Respect user allergies, diet, and dislikes STRICTLY
+- If the user context mentions household size, choose recipes that naturally serve that many people. For example, household of 1 = single-serving dishes, household of 4 = family-sized recipes
 - Vary cuisines, proteins, and cooking styles across the days
 - Keep dishes realistic for the user's skill level and time preference
 - NEVER invent fusion dishes or made-up combinations

@@ -86,27 +86,10 @@ class _RatingDialogState extends State<_RatingDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Icon
-            Container(
+            Image.asset(
+              'assets/logo.png',
               width: 60,
               height: 60,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.restaurant_menu_rounded,
-                color: Colors.white,
-                size: 28,
-              ),
             ),
             const SizedBox(height: 18),
             // Title

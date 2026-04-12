@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 
-/// Full-screen dark paywall. Minimal, clean, high-converting.
-/// Shows when a free-tier limit is hit.
-///
-/// No fake IAP — shows "Pro coming soon" until RevenueCat is wired.
-/// When IAP is ready, swap the CTA and add pricing tiles.
+/// Full-screen dark paywall. Clean, minimal, high-converting.
 class PaywallScreen extends StatefulWidget {
   final String? triggerText;
 
@@ -18,6 +14,7 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _showClose = false;
+  bool _annual = true;
 
   @override
   void initState() {
@@ -33,7 +30,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       backgroundColor: const Color(0xFF0A1A0D),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+          padding: const EdgeInsets.fromLTRB(28, 12, 28, 24),
           child: Column(
             children: [
               // Close button
@@ -62,12 +59,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
               ),
               const Spacer(flex: 2),
               // Logo
-              Image.asset(
-                'assets/logo.png',
-                width: 80,
-                height: 80,
-              ),
-              const SizedBox(height: 20),
+              Image.asset('assets/logo.png', width: 72, height: 72),
+              const SizedBox(height: 18),
               // Headline
               const Text(
                 'Go Pro',
@@ -78,11 +71,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   letterSpacing: -1,
                 ),
               ),
-              const SizedBox(height: 8),
-              // Trigger context
+              const SizedBox(height: 6),
               if (widget.triggerText != null)
                 Container(
-                  margin: const EdgeInsets.only(bottom: 10),
+                  margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 7,
@@ -100,52 +92,41 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                   ),
                 ),
-              // 3 features — tight, clean, one line each
-              const SizedBox(height: 24),
-              _feature(Icons.auto_awesome_rounded, 'Unlimited AI searches & meal plans'),
+              // 3 features — single line each
+              const SizedBox(height: 20),
+              _feature(Icons.auto_awesome_rounded,
+                  'Unlimited AI searches & meal plans'),
               const SizedBox(height: 14),
-              _feature(Icons.tune_rounded, 'Ingredient scaling for any serving size'),
+              _feature(
+                  Icons.tune_rounded, 'Ingredient scaling for any serving size'),
               const SizedBox(height: 14),
               _feature(Icons.menu_book_rounded, 'Unlimited cookbooks'),
-              const Spacer(flex: 3),
-              // Coming soon card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.2),
-                      AppColors.primary.withValues(alpha: 0.08),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Pro launching soon',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
+              const Spacer(flex: 2),
+              // Pricing — equal-size cards
+              Row(
+                children: [
+                  Expanded(
+                    child: _priceCard(
+                      label: 'Monthly',
+                      price: '\$4.99',
+                      sub: '/month',
+                      isSelected: !_annual,
+                      onTap: () => setState(() => _annual = false),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'All manual features are free — forever.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _priceCard(
+                      label: 'Annual',
+                      price: '\$29.99',
+                      sub: '/year',
+                      badge: 'SAVE 50%',
+                      perDay: '\$0.08/day',
+                      isSelected: _annual,
+                      onTap: () => setState(() => _annual = true),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               // CTA
@@ -155,6 +136,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     HapticFeedback.mediumImpact();
+                    // TODO: RevenueCat purchase — user will set up in store
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
@@ -166,11 +148,37 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                   ),
                   child: const Text(
-                    'Got it',
+                    'Start Free Trial',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Center(
+                child: Text(
+                  '7-day free trial · Cancel anytime',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: GestureDetector(
+                  onTap: () {
+                    // TODO: Restore purchases
+                  },
+                  child: Text(
+                    'Restore purchase',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.3),
+                      decoration: TextDecoration.underline,
                     ),
                   ),
                 ),
@@ -206,6 +214,120 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _priceCard({
+    required String label,
+    required String price,
+    required String sub,
+    String? badge,
+    String? perDay,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        onTap();
+        HapticFeedback.selectionClick();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 120,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : Colors.white.withValues(alpha: 0.1),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? AppColors.primaryLight
+                        : Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+                if (badge != null) ...[
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      badge,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const Spacer(),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  price,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: isSelected
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.7),
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    sub,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (perDay != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                perDay,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.primaryLight.withValues(alpha: 0.7),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

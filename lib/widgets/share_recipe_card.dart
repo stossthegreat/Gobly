@@ -46,18 +46,10 @@ class ShareRecipeCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
               child: Row(
                 children: [
-                  Container(
+                  Image.asset(
+                    'assets/logo.png',
                     width: 32,
                     height: 32,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: const Icon(
-                      Icons.restaurant_menu_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
                   ),
                   const SizedBox(width: 10),
                   const Text(
@@ -183,10 +175,10 @@ class ShareRecipeCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.restaurant_menu_rounded,
-                            size: 13,
-                            color: AppColors.primary,
+                          Image.asset(
+                            'assets/logo.png',
+                            width: 16,
+                            height: 16,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -314,18 +306,10 @@ class ShareCarouselCover extends StatelessWidget {
               // Logo
               Row(
                 children: [
-                  Container(
+                  Image.asset(
+                    'assets/logo.png',
                     width: 36,
                     height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.restaurant_menu_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
                   ),
                   const SizedBox(width: 10),
                   const Text(

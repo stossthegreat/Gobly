@@ -1284,29 +1284,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Container(
+              Image.asset(
+                'assets/logo.png',
                 width: 80,
                 height: 80,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
-                  ),
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.restaurant_menu_rounded,
-                  color: Colors.white,
-                  size: 40,
-                ),
               ),
               const SizedBox(height: 18),
               const Text(
