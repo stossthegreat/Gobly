@@ -37,7 +37,7 @@ class OnboardingScreen extends StatelessWidget {
               const Spacer(flex: 2),
               // Logo
               Image.asset(
-                'assets/playstore.png',
+                'assets/logo.png',
                 width: 100,
                 height: 100,
               ),
