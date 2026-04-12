@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../theme/app_theme.dart';
 import '../services/saved_recipes_service.dart';
 
@@ -30,8 +33,10 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
   final _stepFocus = FocusNode();
 
   String _selectedEmoji = '\u{1F372}';
+  String? _photoPath; // local file path if user added a photo
   final List<String> _ingredients = [];
   final List<String> _steps = [];
+  final _imagePicker = ImagePicker();
 
   static const _emojiOptions = [
     '\u{1F372}', // pot of food
@@ -104,6 +109,139 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
     HapticFeedback.lightImpact();
   }
 
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+      // Copy to app's persistent directory so it survives across sessions
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName =
+          'recipe_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedFile = await File(picked.path).copy('${appDir.path}/$fileName');
+      setState(() => _photoPath = savedFile.path);
+      HapticFeedback.lightImpact();
+    } catch (_) {}
+  }
+
+  void _showPhotoOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.borderLight,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Add a photo',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildPhotoOption(
+                      Icons.camera_alt_rounded,
+                      'Camera',
+                      () {
+                        Navigator.pop(context);
+                        _pickPhoto(ImageSource.camera);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildPhotoOption(
+                      Icons.photo_library_rounded,
+                      'Gallery',
+                      () {
+                        Navigator.pop(context);
+                        _pickPhoto(ImageSource.gallery);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              if (_photoPath != null) ...[
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() => _photoPath = null);
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Remove photo',
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoOption(IconData icon, String label, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 28),
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.primaryMuted.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: AppColors.primary, size: 32),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (!_canSave) return;
     final recipe = {
@@ -113,6 +251,7 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
           : _sourceController.text.trim(),
       'time': _timeController.text.trim(),
       'emoji': _selectedEmoji,
+      'image': _photoPath ?? '', // local file path or empty
       'rating': 0.0,
       'category': 'Mine',
       'ingredients': _ingredients,
@@ -218,6 +357,8 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
   }
 
   Widget _buildEmojiPicker() {
+    final hasPhoto = _photoPath != null && File(_photoPath!).existsSync();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -236,70 +377,118 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
         ),
         child: Column(
           children: [
-            // Big selected emoji preview
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.primarySoft,
-                    AppColors.primaryMuted.withValues(alpha: 0.4),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Center(
-                child: Text(
-                  _selectedEmoji,
-                  style: const TextStyle(fontSize: 60),
-                ),
+            // Photo or emoji hero preview
+            GestureDetector(
+              onTap: _showPhotoOptions,
+              child: Stack(
+                children: [
+                  if (hasPhoto)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.file(
+                        File(_photoPath!),
+                        width: 140,
+                        height: 140,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  else
+                    Container(
+                      width: 140,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.primarySoft,
+                            AppColors.primaryMuted.withValues(alpha: 0.4),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _selectedEmoji,
+                          style: const TextStyle(fontSize: 64),
+                        ),
+                      ),
+                    ),
+                  // Camera badge
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
-              'Pick an icon',
+              hasPhoto ? 'Tap to change photo' : 'Tap to add photo or pick an icon',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textHint,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: _emojiOptions.map((emoji) {
-                final isSelected = _selectedEmoji == emoji;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() => _selectedEmoji = emoji);
-                    HapticFeedback.selectionClick();
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primarySoft : AppColors.background,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
+            if (!hasPhoto) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: _emojiOptions.map((emoji) {
+                  final isSelected = _selectedEmoji == emoji;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedEmoji = emoji);
+                      HapticFeedback.selectionClick();
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primary.withValues(alpha: 0.5)
-                            : AppColors.borderLight,
-                        width: isSelected ? 1.5 : 1,
+                            ? AppColors.primarySoft
+                            : AppColors.background,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary.withValues(alpha: 0.5)
+                              : AppColors.borderLight,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(emoji, style: const TextStyle(fontSize: 22)),
                       ),
                     ),
-                    child: Center(
-                      child: Text(emoji, style: const TextStyle(fontSize: 22)),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+                  );
+                }).toList(),
+              ),
+            ],
           ],
         ),
       ),

@@ -17,6 +17,8 @@ class _GroceryScreenState extends State<GroceryScreen> {
   final FocusNode _addFocus = FocusNode();
   bool _showAddField = false;
   String _selectedCategory = 'Other';
+  // false = Gobly (auto from meal plan), true = My (manual items)
+  bool _showMyItems = false;
 
   final List<Map<String, dynamic>> _categories = [
     {
@@ -58,38 +60,51 @@ class _GroceryScreenState extends State<GroceryScreen> {
     return ListenableBuilder(
       listenable: GroceryService.instance,
       builder: (context, _) {
-        final items = GroceryService.instance.items;
-        final hasItems = items.isNotEmpty;
-        final totalCount = items.length;
-        final checkedCount = GroceryService.instance.checkedCount;
+        final allItems = GroceryService.instance.items;
+        // Filter by current tab: Gobly = auto items, My = manual items
+        final filteredItems = _showMyItems
+            ? allItems.where((i) => !i.isAuto).toList()
+            : allItems.where((i) => i.isAuto).toList();
+        final hasItems = filteredItems.isNotEmpty;
+        final totalCount = filteredItems.length;
+        final checkedCount = filteredItems.where((i) => i.checked).length;
 
         return Scaffold(
           backgroundColor: AppColors.background,
           body: Column(
             children: [
-              _buildHeader(context, hasItems, totalCount, checkedCount),
+              _buildHeader(context, allItems.isNotEmpty, totalCount, checkedCount),
+              _buildTabToggle(allItems),
               Expanded(
                 child: !hasItems && !_showAddField
                     ? _buildEmptyState()
-                    : _buildGroceryList(items, totalCount, checkedCount),
+                    : _buildGroceryList(
+                        filteredItems, totalCount, checkedCount),
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () {
-              setState(() => _showAddField = true);
-              Future.delayed(const Duration(milliseconds: 100), () {
-                _addFocus.requestFocus();
-              });
-              HapticFeedback.lightImpact();
-            },
-            backgroundColor: AppColors.primary,
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-          ),
+          // Only show FAB on the "My" tab — Gobly items are auto-generated
+          floatingActionButton: _showMyItems
+              ? FloatingActionButton(
+                  onPressed: () {
+                    setState(() => _showAddField = true);
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      _addFocus.requestFocus();
+                    });
+                    HapticFeedback.lightImpact();
+                  },
+                  backgroundColor: AppColors.primary,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                )
+              : null,
         );
       },
     );
@@ -208,7 +223,111 @@ class _GroceryScreenState extends State<GroceryScreen> {
     );
   }
 
+  Widget _buildTabToggle(List<GroceryItem> allItems) {
+    final autoCount = allItems.where((i) => i.isAuto).length;
+    final manualCount = allItems.where((i) => !i.isAuto).length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.borderLight),
+        ),
+        child: Row(
+          children: [
+            _buildTab(
+              label: 'Gobly',
+              count: autoCount,
+              isSelected: !_showMyItems,
+              onTap: () => setState(() {
+                _showMyItems = false;
+                _showAddField = false;
+              }),
+            ),
+            _buildTab(
+              label: 'My',
+              count: manualCount,
+              isSelected: _showMyItems,
+              onTap: () => setState(() => _showMyItems = true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab({
+    required String label,
+    required int count,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          onTap();
+          HapticFeedback.selectionClick();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                ),
+              ),
+              if (count > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primarySoft
+                        : AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textHint,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
+    final isGoblyTab = !_showMyItems;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -222,16 +341,18 @@ class _GroceryScreenState extends State<GroceryScreen> {
                 color: AppColors.primarySoft,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
-                Icons.shopping_cart_rounded,
+              child: Icon(
+                isGoblyTab
+                    ? Icons.auto_awesome_rounded
+                    : Icons.edit_note_rounded,
                 color: AppColors.primary,
                 size: 36,
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'No groceries yet',
-              style: TextStyle(
+            Text(
+              isGoblyTab ? 'No auto ingredients yet' : 'No manual items yet',
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -239,7 +360,9 @@ class _GroceryScreenState extends State<GroceryScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Plan a meal with a recipe and ingredients\nappear here automatically',
+              isGoblyTab
+                  ? 'Plan a meal with a recipe and ingredients\nappear here automatically'
+                  : 'Tap + to add your own grocery items',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,

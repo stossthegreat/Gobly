@@ -58,33 +58,47 @@ export async function registerPlanWeekRoute(app: FastifyInstance): Promise<void>
       }
 
       // Step 3: Search for each dish in parallel using the elite filter cascade.
-      // Pulls 5 candidates per dish so the elite filter has options.
+      // Each dish gets two attempts: first with the dish name, then with
+      // "best {dish} recipe" if the first pass didn't return a complete recipe.
       const enriched = await Promise.all(
         dishes.map(async (dish) => {
           try {
-            const results = await webSearch(dish.name, 6);
-            const candidates = results
-              .filter((r) => r.link && !isBlocked(r.link))
-              .slice(0, 5);
-            if (candidates.length === 0) return { ...dish, recipe: null };
-
-            const fetched = await fetchParallel(candidates.map((c) => c.link));
-            const recipes: Recipe[] = [];
-            for (const result of fetched) {
-              if (!result.html) continue;
-              const recipe = extractRecipeFromHtml(result.html, result.url);
-              if (recipe) recipes.push(recipe);
-            }
-
-            // Cascade-rank: best elite version, fallback to good, fallback to anything
-            const ranked = eliteRank(recipes, 1);
-            return { ...dish, recipe: ranked[0] || null };
+            const recipe = await findCompleteRecipe(dish.name);
+            return { ...dish, recipe };
           } catch (err) {
             app.log.warn({ err, dish: dish.name }, 'Failed to fetch recipe for dish');
             return { ...dish, recipe: null };
           }
         }),
       );
+
+      /** Search + fetch + extract, rejecting recipes without full data */
+      async function findCompleteRecipe(name: string): Promise<Recipe | null> {
+        // Try two queries — exact name and then a "best" variant
+        const queries = [name, `best ${name} recipe`];
+        for (const query of queries) {
+          const results = await webSearch(query, 8);
+          const candidates = results
+            .filter((r) => r.link && !isBlocked(r.link))
+            .slice(0, 6);
+          if (candidates.length === 0) continue;
+
+          const fetched = await fetchParallel(candidates.map((c) => c.link));
+          const recipes: Recipe[] = [];
+          for (const result of fetched) {
+            if (!result.html) continue;
+            const recipe = extractRecipeFromHtml(result.html, result.url);
+            // Only accept recipes with REAL content — at least 2 ingredients + 2 steps
+            if (recipe && recipe.ingredients.length >= 2 && recipe.instructions.length >= 2) {
+              recipes.push(recipe);
+            }
+          }
+
+          const ranked = eliteRank(recipes, 1);
+          if (ranked.length > 0) return ranked[0];
+        }
+        return null;
+      }
 
       // Step 4: Reshape into the response structure
       const responsePlan: PlanWeekResponse['plan'] = {};
