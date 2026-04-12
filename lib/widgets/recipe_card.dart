@@ -9,6 +9,7 @@ class RecipeCard extends StatelessWidget {
   final String source;
   final String time;
   final String imageEmoji;
+  final String? imageUrl; // network image — used instead of emoji when present
   final double rating;
   final String category;
   final VoidCallback? onTap;
@@ -19,6 +20,7 @@ class RecipeCard extends StatelessWidget {
     required this.source,
     required this.time,
     required this.imageEmoji,
+    this.imageUrl,
     required this.rating,
     required this.category,
     this.onTap,
@@ -54,34 +56,63 @@ class RecipeCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               child: Stack(
                 children: [
-                  // Gradient hero background
-                  Container(
-                    height: 220,
-                    width: 165,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0xFFE8F5E9),
-                          Color(0xFFC8E6C9),
-                          Color(0xFFA5D6A7),
-                        ],
+                  // Hero background — real image or gradient + emoji
+                  if (imageUrl != null && imageUrl!.isNotEmpty)
+                    SizedBox(
+                      height: 220,
+                      width: 165,
+                      child: Image.network(
+                        imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0xFFE8F5E9),
+                                Color(0xFFC8E6C9),
+                                Color(0xFFA5D6A7),
+                              ],
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              imageEmoji,
+                              style: const TextStyle(fontSize: 64),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    Container(
+                      height: 220,
+                      width: 165,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0xFFE8F5E9),
+                            Color(0xFFC8E6C9),
+                            Color(0xFFA5D6A7),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  // Centered emoji
-                  Positioned(
-                    top: 28,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Text(
-                        imageEmoji,
-                        style: const TextStyle(fontSize: 64),
+                    Positioned(
+                      top: 28,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Text(
+                          imageEmoji,
+                          style: const TextStyle(fontSize: 64),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                   // Dark overlay at the bottom with title
                   Positioned(
                     bottom: 0,

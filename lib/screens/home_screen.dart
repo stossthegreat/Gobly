@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import '../services/app_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/recipe_card.dart';
 import '../services/user_profile_service.dart';
@@ -32,31 +35,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _transcribing = false;
   late AnimationController _micPulseController;
 
-  // Mock trending data
-  final List<Map<String, dynamic>> _trendingRecipes = [
+  // Trending recipes fetched from backend — curated, rotated daily
+  List<Map<String, dynamic>> _trendingRecipes = [
+    // Fallback shown until backend responds
     {
-      'title': 'Creamy Garlic Tuscan Salmon',
-      'source': 'NYT Cooking',
-      'time': '25 min',
-      'emoji': '\u{1F969}',
+      'title': 'Marry Me Chicken',
+      'source': 'Delish',
+      'time': '40 min',
+      'emoji': '\u{1F357}',
       'rating': 4.9,
-      'category': 'TRENDING',
-    },
-    {
-      'title': 'Birria Tacos',
-      'source': 'Serious Eats',
-      'time': '45 min',
-      'emoji': '\u{1F32E}',
-      'rating': 4.8,
       'category': 'VIRAL',
-    },
-    {
-      'title': 'Dubai Chocolate Bar',
-      'source': 'Half Baked Harvest',
-      'time': '30 min',
-      'emoji': '\u{1F36B}',
-      'rating': 4.7,
-      'category': 'TRENDING',
     },
     {
       'title': 'Baked Feta Pasta',
@@ -64,14 +52,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       'time': '35 min',
       'emoji': '\u{1F35D}',
       'rating': 4.9,
+      'category': 'VIRAL',
+    },
+    {
+      'title': 'Butter Chicken',
+      'source': 'RecipeTin Eats',
+      'time': '30 min',
+      'emoji': '\u{1F35B}',
+      'rating': 4.9,
       'category': 'CLASSIC',
     },
     {
-      'title': 'Korean Corn Cheese',
-      'source': 'Maangchi',
-      'time': '15 min',
-      'emoji': '\u{1F33D}',
-      'rating': 4.6,
+      'title': 'Smash Burgers',
+      'source': 'Serious Eats',
+      'time': '20 min',
+      'emoji': '\u{1F354}',
+      'rating': 4.8,
+      'category': 'QUICK',
+    },
+    {
+      'title': 'Shakshuka',
+      'source': 'NYT Cooking',
+      'time': '30 min',
+      'emoji': '\u{1F373}',
+      'rating': 4.8,
       'category': 'VIRAL',
     },
   ];
@@ -83,6 +87,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _fetchTrending();
+  }
+
+  /// Fetch today's trending recipes from the backend.
+  /// Falls back to the hardcoded list if the fetch fails.
+  Future<void> _fetchTrending() async {
+    try {
+      final backendUrl = AppSettingsService.instance.backendUrl;
+      if (backendUrl.isEmpty) return;
+      final uri = Uri.parse('$backendUrl/api/trending?count=6');
+      final response = await http.get(uri).timeout(
+            const Duration(seconds: 8),
+          );
+      if (response.statusCode != 200) return;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final recipes = (data['recipes'] as List?) ?? [];
+      if (recipes.isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        _trendingRecipes = recipes.map((r) {
+          final m = r as Map<String, dynamic>;
+          return {
+            'title': m['title'] ?? '',
+            'source': m['source'] ?? '',
+            'sourceUrl': m['sourceUrl'] ?? '',
+            'time': m['time'] ?? '',
+            'emoji': m['emoji'] ?? '\u{1F372}',
+            'image': m['image'] ?? '',
+            'rating': (m['rating'] as num?)?.toDouble() ?? 0.0,
+            'category': m['category'] ?? 'TRENDING',
+            'description': m['description'] ?? '',
+          };
+        }).toList();
+      });
+    } catch (_) {
+      // Keep fallback data — silent failure is fine
+    }
   }
 
   @override
@@ -247,15 +288,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       Row(
                         children: [
                           Image.asset(
-                            'assets/playstore.png',
-                            width: 48,
-                            height: 48,
+                            'assets/logo.png',
+                            width: 40,
+                            height: 40,
                           ),
                           const SizedBox(width: 10),
                           Text(
                             name.isEmpty ? 'Gobly' : 'Hi, $name',
                             style: const TextStyle(
-                              fontSize: 30,
+                              fontSize: 28,
                               fontWeight: FontWeight.w800,
                               color: AppColors.primary,
                               letterSpacing: -0.5,
@@ -1448,10 +1489,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             source: recipe['source'],
             time: recipe['time'],
             imageEmoji: recipe['emoji'],
+            imageUrl: recipe['image'] as String?,
             rating: recipe['rating'],
             category: recipe['category'],
-            // Tap fires the real agent search for this recipe — returns
-            // top 3 results with full ingredients/instructions/image
             onTap: () => _runAgentSearch(recipe['title']),
           );
         },
