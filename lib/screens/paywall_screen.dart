@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
-import '../services/usage_service.dart';
+// import '../services/usage_service.dart'; // restore when RevenueCat is wired
 
 /// Full-screen dark paywall. No scroll, single viewport.
 /// Shown when a free-tier limit is hit.
@@ -25,7 +25,6 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _showClose = false;
-  bool _annual = true; // annual pre-selected
 
   @override
   void initState() {
@@ -147,56 +146,56 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 'Organise your recipes into as many collections as you like.',
               ),
               const Spacer(flex: 2),
-              // Pricing toggle
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildPriceTile(
-                      label: 'Monthly',
-                      price: '\$4.99',
-                      sub: '/month',
-                      isSelected: !_annual,
-                      onTap: () => setState(() => _annual = false),
-                    ),
+              // Pro coming soon — pricing removed until RevenueCat is wired
+              // so Apple/Google don't reject for fake subscription UI
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildPriceTile(
-                      label: 'Annual',
-                      price: '\$39.99',
-                      sub: '/year',
-                      badge: 'SAVE 33%',
-                      perDay: '\$0.11/day',
-                      isSelected: _annual,
-                      onTap: () => setState(() => _annual = true),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.rocket_launch_rounded,
+                      color: AppColors.primaryLight,
+                      size: 28,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Pro is launching soon',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Unlimited AI search, meal plans,\ningredient scaling & more.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.5),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
-              // CTA
+              // CTA — continue with free tier for now
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () {
                     HapticFeedback.mediumImpact();
-                    // TODO: RevenueCat purchase flow
-                    // For now, just unlock Pro for testing
-                    UsageService.instance.setPro(true);
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text(
-                          'Pro unlocked! (testing mode — real payments coming soon)',
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        backgroundColor: AppColors.primary,
-                      ),
-                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -207,7 +206,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                   ),
                   child: const Text(
-                    'Start My Free Trial',
+                    'Got it',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -217,29 +216,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              // Sub-CTA text
               Center(
                 child: Text(
-                  '7-day free trial · Cancel anytime',
+                  'You can still use all manual features for free.',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Center(
-                child: GestureDetector(
-                  onTap: () {
-                    // TODO: Restore purchases
-                  },
-                  child: Text(
-                    'Restore purchase',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.3),
-                      decoration: TextDecoration.underline,
-                    ),
                   ),
                 ),
               ),
@@ -292,114 +274,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
-  Widget _buildPriceTile({
-    required String label,
-    required String price,
-    required String sub,
-    String? badge,
-    String? perDay,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        onTap();
-        HapticFeedback.selectionClick();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.primary
-                : Colors.white.withValues(alpha: 0.1),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? AppColors.primaryLight
-                        : Colors.white.withValues(alpha: 0.5),
-                  ),
-                ),
-                if (badge != null) ...[
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      badge,
-                      style: const TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  price,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.7),
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(width: 3),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(
-                    sub,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (perDay != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                perDay,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.primaryLight.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+  // _buildPriceTile removed — will be restored when RevenueCat
+  // is integrated and real IAP is wired up. Keeping the paywall
+  // as a "Pro coming soon" teaser prevents App Store rejection
+  // for displaying subscription prices without StoreKit.
 }

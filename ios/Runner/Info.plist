@@ -49,5 +49,11 @@
 	<string>Gobly uses your microphone to let you speak your recipe queries.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Gobly uses speech recognition to turn your voice into recipe searches.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Gobly uses your photo library to add images to your recipes.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Gobly uses your camera to photograph dishes for your recipes.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

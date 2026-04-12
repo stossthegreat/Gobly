@@ -93,11 +93,16 @@ class AppSettingsService extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// Clean up and validate a URL: trim, add https:// if missing, strip trailing slash
+  /// Clean up and validate a URL: trim, force https://, strip trailing slash.
+  /// Rejects http:// because iOS App Transport Security blocks cleartext HTTP.
   String _normalize(String url) {
     var cleaned = url.trim();
     if (cleaned.isEmpty) return '';
-    if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    // Force HTTPS — iOS blocks http:// via ATS
+    if (cleaned.startsWith('http://')) {
+      cleaned = cleaned.replaceFirst('http://', 'https://');
+    }
+    if (!cleaned.startsWith('https://')) {
       cleaned = 'https://$cleaned';
     }
     while (cleaned.endsWith('/')) {
