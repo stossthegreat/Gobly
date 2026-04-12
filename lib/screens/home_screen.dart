@@ -719,7 +719,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (!mounted) return;
 
       if (recipe != null) {
-        // Save it and show the detail sheet
         await SavedRecipesService.instance.add({
           'title': recipe.title,
           'source': recipe.source.name,
@@ -744,20 +743,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       } else {
-        // No recipe found — offer manual creation
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
-            content: const Text(
-              'No recipe found on that page — try adding it manually',
-            ),
+            content: const Text('No recipe data returned'),
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            action: SnackBarAction(
-              label: 'Write',
-              onPressed: () => _openCreateRecipe(prefillSource: url),
-            ),
           ),
         );
       }
@@ -766,10 +758,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Could not extract: $e'),
+          content: Text('$e'),
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Write manually',
+            onPressed: () => _openCreateRecipe(prefillSource: url),
+          ),
         ),
       );
     }
@@ -1599,11 +1596,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// image if we have one, falls back to a gradient + emoji.
   Widget _buildSavedThumbnail(Map<String, dynamic> recipe) {
     final image = (recipe['image'] ?? '').toString();
-    if (image.isNotEmpty) {
+    if (image.startsWith('http')) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: Image.network(
           image,
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildSavedEmojiFallback(recipe),
+        ),
+      );
+    }
+    if (image.startsWith('/') && File(image).existsSync()) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.file(
+          File(image),
           width: 56,
           height: 56,
           fit: BoxFit.cover,

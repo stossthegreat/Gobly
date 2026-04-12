@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 
-/// Full-screen dark paywall. Clean, minimal, high-converting.
+/// Full-screen dark paywall.
 class PaywallScreen extends StatefulWidget {
   final String? triggerText;
 
@@ -30,10 +30,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
       backgroundColor: const Color(0xFF0A1A0D),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 12, 28, 24),
+          padding: const EdgeInsets.fromLTRB(28, 12, 28, 20),
           child: Column(
             children: [
-              // Close button
+              // Close
               Align(
                 alignment: Alignment.topRight,
                 child: AnimatedOpacity(
@@ -60,8 +60,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               const Spacer(flex: 2),
               // Logo
               Image.asset('assets/logo.png', width: 72, height: 72),
-              const SizedBox(height: 18),
-              // Headline
+              const SizedBox(height: 16),
               const Text(
                 'Go Pro',
                 style: TextStyle(
@@ -74,7 +73,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               const SizedBox(height: 6),
               if (widget.triggerText != null)
                 Container(
-                  margin: const EdgeInsets.only(bottom: 8),
+                  margin: const EdgeInsets.only(bottom: 6),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 7,
@@ -92,7 +91,6 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                   ),
                 ),
-              // 3 features — single line each
               const SizedBox(height: 20),
               _feature(Icons.auto_awesome_rounded,
                   'Unlimited AI searches & meal plans'),
@@ -102,7 +100,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               const SizedBox(height: 14),
               _feature(Icons.menu_book_rounded, 'Unlimited cookbooks'),
               const Spacer(flex: 2),
-              // Pricing — equal-size cards
+              // Pricing cards — identical height
               Row(
                 children: [
                   Expanded(
@@ -128,7 +126,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               // CTA
               SizedBox(
                 width: double.infinity,
@@ -136,8 +134,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     HapticFeedback.mediumImpact();
-                    // TODO: RevenueCat purchase — user will set up in store
-                    Navigator.pop(context);
+                    // TODO: Wire RevenueCat purchase here
+                    // For now show coming soon message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text(
+                          'Subscriptions launching very soon!',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        backgroundColor: AppColors.primary,
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -147,10 +157,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text(
-                    'Start Free Trial',
-                    style: TextStyle(
-                      fontSize: 17,
+                  child: Text(
+                    _annual ? 'Subscribe — \$29.99/year' : 'Subscribe — \$4.99/month',
+                    style: const TextStyle(
+                      fontSize: 16,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
                     ),
@@ -158,30 +168,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              Center(
-                child: Text(
-                  '7-day free trial · Cancel anytime',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Center(
-                child: GestureDetector(
-                  onTap: () {
+              // Restore + legal links
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _smallLink('Restore purchase', () {
                     // TODO: Restore purchases
-                  },
-                  child: Text(
-                    'Restore purchase',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.3),
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
+                  }),
+                  _dot(),
+                  _smallLink('Terms', () => _showLegal(context, 'terms')),
+                  _dot(),
+                  _smallLink('Privacy', () => _showLegal(context, 'privacy')),
+                ],
               ),
             ],
           ),
@@ -233,7 +231,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: 120,
+        height: 110,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected
@@ -315,7 +313,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               ],
             ),
             if (perDay != null) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 perDay,
                 style: TextStyle(
@@ -326,6 +324,94 @@ class _PaywallScreenState extends State<PaywallScreen> {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _smallLink(String text, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.white.withValues(alpha: 0.35),
+            decoration: TextDecoration.underline,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dot() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Text(
+        '·',
+        style: TextStyle(
+          fontSize: 11,
+          color: Colors.white.withValues(alpha: 0.25),
+        ),
+      ),
+    );
+  }
+
+  void _showLegal(BuildContext context, String type) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        builder: (context, sc) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            controller: sc,
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 18),
+                    decoration: BoxDecoration(
+                      color: AppColors.borderLight,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  type == 'terms' ? 'Terms of Service' : 'Privacy Policy',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  type == 'terms'
+                      ? 'By subscribing to Gobly Pro you agree to the terms outlined in our full Terms of Service accessible from the Settings screen. Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period. You can manage or cancel your subscription in your device\'s app store settings at any time.'
+                      : 'Gobly collects your dietary preferences and recipe data locally on your device. When using AI features, your query and profile context are sent to our secure backend over HTTPS. Audio recordings for voice search are processed and immediately discarded. We do not sell your data. Full privacy policy is accessible from the Settings screen.',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                    height: 1.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

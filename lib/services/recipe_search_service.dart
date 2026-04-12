@@ -96,29 +96,41 @@ class RecipeSearchService {
   /// Extract a recipe from a pasted URL via the backend's JSON-LD parser.
   Future<RecipeResult?> parseUrl(String url) async {
     _assertBackendConfigured();
-    final uri = Uri.parse('$_backendUrl/api/parse-url');
-    try {
-      final response = await http
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'url': url}),
-          )
-          .timeout(const Duration(seconds: 20));
-
-      if (response.statusCode != 200) {
-        return null; // page has no recipe or couldn't be fetched
-      }
-
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final recipeData = data['recipe'];
-      if (recipeData is Map) {
-        return RecipeResult.fromJson(recipeData.cast<String, dynamic>());
-      }
-      return null;
-    } catch (_) {
-      return null;
+    // Normalize the URL
+    var cleanUrl = url.trim();
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = 'https://$cleanUrl';
     }
+    final uri = Uri.parse('$_backendUrl/api/parse-url');
+    final response = await http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'url': cleanUrl}),
+        )
+        .timeout(const Duration(seconds: 25));
+
+    if (response.statusCode == 422) {
+      // Page fetched but no recipe found
+      throw RecipeSearchException(
+        statusCode: 422,
+        message: 'No recipe found on that page. Try a direct recipe page URL, not a TikTok or Instagram link.',
+      );
+    }
+    if (response.statusCode != 200) {
+      final msg = _extractErrorMessage(response.body);
+      throw RecipeSearchException(
+        statusCode: response.statusCode,
+        message: msg,
+      );
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final recipeData = data['recipe'];
+    if (recipeData is Map) {
+      return RecipeResult.fromJson(recipeData.cast<String, dynamic>());
+    }
+    return null;
   }
 
   /// Quick health check to verify the backend is reachable.
