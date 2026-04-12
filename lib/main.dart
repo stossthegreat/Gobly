@@ -4,6 +4,7 @@ import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/planner_screen.dart';
 import 'screens/grocery_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'services/user_profile_service.dart';
 import 'services/meal_plan_service.dart';
 import 'services/saved_recipes_service.dart';
@@ -20,7 +21,8 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  // Load all services before the app starts so no screens flash empty
+  // Load all services + check onboarding status in parallel
+  late final bool onboardingSeen;
   await Future.wait([
     UserProfileService.instance.load(),
     MealPlanService.instance.load(),
@@ -29,12 +31,15 @@ void main() async {
     CookbooksService.instance.load(),
     GroceryService.instance.load(),
     UsageService.instance.load(),
+    OnboardingScreen.hasBeenSeen().then((v) => onboardingSeen = v),
   ]);
-  runApp(const GoblyApp());
+  runApp(GoblyApp(showOnboarding: !onboardingSeen));
 }
 
 class GoblyApp extends StatelessWidget {
-  const GoblyApp({super.key});
+  final bool showOnboarding;
+
+  const GoblyApp({super.key, required this.showOnboarding});
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +47,29 @@ class GoblyApp extends StatelessWidget {
       title: 'Gobly',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-      home: const AppShell(),
+      home: showOnboarding ? const _OnboardingGate() : const AppShell(),
+    );
+  }
+}
+
+/// Shows onboarding once, then replaces itself with the main app shell.
+class _OnboardingGate extends StatelessWidget {
+  const _OnboardingGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return OnboardingScreen(
+      onComplete: () {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const AppShell(),
+            transitionsBuilder: (_, animation, __, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
+      },
     );
   }
 }
@@ -66,7 +93,6 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // IndexedStack keeps every tab's state alive when switching
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
@@ -84,9 +110,12 @@ class _AppShellState extends State<AppShell> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-                _buildNavItem(1, Icons.calendar_month_rounded, Icons.calendar_month_outlined, 'Plan'),
-                _buildNavItem(2, Icons.shopping_cart_rounded, Icons.shopping_cart_outlined, 'Groceries'),
+                _buildNavItem(
+                    0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+                _buildNavItem(1, Icons.calendar_month_rounded,
+                    Icons.calendar_month_outlined, 'Plan'),
+                _buildNavItem(2, Icons.shopping_cart_rounded,
+                    Icons.shopping_cart_outlined, 'Groceries'),
               ],
             ),
           ),
