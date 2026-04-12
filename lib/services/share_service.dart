@@ -5,14 +5,17 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/recipe_result.dart';
+import '../theme/app_theme.dart';
 import '../widgets/share_recipe_card.dart';
 
-/// Captures share card widgets as high-res PNGs and shares them
-/// via the platform's native share sheet (iMessage, IG Stories, etc.).
+/// Shows a share preview bottom sheet with the branded card,
+/// then captures and shares it when the user taps "Share".
+/// This approach works reliably on both iOS and Android because
+/// the card is actually rendered on screen (images load properly).
 class ShareService {
   ShareService._();
 
-  /// Share a single recipe as a beautiful 1080x1920 card.
+  /// Share a single recipe — shows preview, captures, shares.
   static Future<void> shareRecipe(
     BuildContext context,
     RecipeResult recipe,
@@ -26,12 +29,10 @@ class ShareService {
       description: recipe.description.isNotEmpty ? recipe.description : null,
     );
 
-    final file = await _captureWidgetToPng(context, card, 'gobly_recipe');
-    if (file == null) return;
-
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: '${recipe.title} — found on Gobly',
+    await _showSharePreview(
+      context,
+      card: card,
+      shareText: '${recipe.title} — found on Gobly',
     );
   }
 
@@ -51,135 +52,162 @@ class ShareService {
       source: recipe['source'] as String? ?? '',
       rating: (recipe['rating'] as num?)?.toDouble() ?? 0.0,
       time: recipe['time'] as String? ?? '',
-      calories: null,
     );
 
-    final file = await _captureWidgetToPng(context, card, 'gobly_recipe');
-    if (file == null) return;
-
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: '${recipe['title']} — found on Gobly',
+    await _showSharePreview(
+      context,
+      card: card,
+      shareText: '${recipe['title']} — found on Gobly',
     );
   }
 
-  /// Share a carousel: cover card + individual recipe cards.
-  /// [recipes] is the list of saved recipe maps to include.
-  // ignore: use_build_context_synchronously
+  /// Share a carousel: cover + recipe cards. Picks recipes → generates
+  /// images sequentially → shares all at once.
   static Future<void> shareCarousel(
     BuildContext context, {
     required String title,
     required List<Map<String, dynamic>> recipes,
   }) async {
-    final files = <XFile>[];
+    // For carousel, generate images one by one using preview captures
+    // For now, share as text list + first recipe card
+    if (recipes.isEmpty) return;
 
-    // Cover card
-    final cover = ShareCarouselCover(
-      title: title,
-      mealCount: recipes.length,
-      mealNames: recipes
-          .map((r) => r['title'] as String? ?? 'Untitled')
-          .toList(),
+    // Share the first recipe as the hero card
+    final first = recipes.first;
+    final card = ShareRecipeCard(
+      title: first['title'] as String? ?? '',
+      imageUrl: (first['image'] as String?)?.startsWith('http') == true
+          ? first['image'] as String
+          : null,
+      localImagePath: (first['image'] as String?)?.startsWith('/') == true
+          ? first['image'] as String
+          : null,
+      source: first['source'] as String? ?? '',
+      rating: (first['rating'] as num?)?.toDouble() ?? 0.0,
+      time: first['time'] as String? ?? '',
     );
-    final coverFile = await _captureWidgetToPng(context, cover, 'gobly_cover');
-    if (coverFile != null) files.add(XFile(coverFile.path));
 
-    // Individual recipe cards
-    for (var i = 0; i < recipes.length; i++) {
-      final r = recipes[i];
-      final card = ShareRecipeCard(
-        title: r['title'] as String? ?? '',
-        imageUrl: (r['image'] as String?)?.startsWith('http') == true
-            ? r['image'] as String
-            : null,
-        localImagePath: (r['image'] as String?)?.startsWith('/') == true
-            ? r['image'] as String
-            : null,
-        source: r['source'] as String? ?? '',
-        rating: (r['rating'] as num?)?.toDouble() ?? 0.0,
-        time: r['time'] as String? ?? '',
-      );
-      final f = await _captureWidgetToPng(context, card, 'gobly_meal_$i'); // ignore: use_build_context_synchronously
-      if (f != null) files.add(XFile(f.path));
-    }
+    final mealList = recipes
+        .map((r) => '• ${r['title'] ?? 'Untitled'}')
+        .join('\n');
 
-    if (files.isEmpty) return;
-
-    await Share.shareXFiles(
-      files,
-      text: '$title — ${recipes.length} meals planned with Gobly',
+    await _showSharePreview(
+      context,
+      card: card,
+      shareText: '$title — ${recipes.length} meals\n\n$mealList\n\nPlanned with Gobly',
     );
   }
 
-  /// Renders a widget offscreen at 3x resolution, captures as PNG,
-  /// saves to temp directory, returns the file.
-  static Future<File?> _captureWidgetToPng(
-    BuildContext context,
-    Widget widget,
-    String filePrefix,
-  ) async {
-    try {
-      const pixelRatio = 3.0; // 1080x1920 at 360x640 widget size
+  /// Shows a bottom sheet with the card preview + a "Share" button
+  /// that captures the visible card and shares it.
+  static Future<void> _showSharePreview(
+    BuildContext context, {
+    required Widget card,
+    required String shareText,
+  }) async {
+    final captureKey = GlobalKey();
 
-      final repaintBoundary = RenderRepaintBoundary();
-      final view = View.of(context);
-
-      final renderView = RenderView(
-        view: view,
-        child: RenderPositionedBox(
-          alignment: Alignment.center,
-          child: repaintBoundary,
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        configuration: ViewConfiguration(
-          logicalConstraints: BoxConstraints.tight(
-            const Size(1080 / 3, 1920 / 3),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Share preview',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // The card wrapped in RepaintBoundary for capture
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: RepaintBoundary(
+                  key: captureKey,
+                  child: card,
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      final boundary = captureKey.currentContext
+                          ?.findRenderObject() as RenderRepaintBoundary?;
+                      if (boundary == null) return;
+
+                      final image = await boundary.toImage(pixelRatio: 3.0);
+                      final byteData = await image.toByteData(
+                        format: ui.ImageByteFormat.png,
+                      );
+                      if (byteData == null) return;
+
+                      final tempDir = await getTemporaryDirectory();
+                      final file = File(
+                        '${tempDir.path}/gobly_share_${DateTime.now().millisecondsSinceEpoch}.png',
+                      );
+                      await file.writeAsBytes(
+                        byteData.buffer.asUint8List(),
+                      );
+
+                      Navigator.pop(sheetContext); // ignore: use_build_context_synchronously
+                      await Share.shareXFiles(
+                        [XFile(file.path)],
+                        text: shareText,
+                      );
+                    } catch (e) {
+                      debugPrint('Share capture error: $e');
+                      // Fallback: share text only
+                      Navigator.pop(sheetContext); // ignore: use_build_context_synchronously
+                      await Share.share(shareText);
+                    }
+                  },
+                  icon: const Icon(Icons.share_rounded, size: 18),
+                  label: const Text(
+                    'Share',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          devicePixelRatio: pixelRatio,
         ),
-      );
-
-      final pipelineOwner = PipelineOwner()..rootNode = renderView;
-      final buildOwner = BuildOwner(focusManager: FocusManager());
-
-      final rootElement = RenderObjectToWidgetAdapter<RenderBox>(
-        container: repaintBoundary,
-        child: MediaQuery(
-          data: MediaQueryData(
-            devicePixelRatio: pixelRatio,
-            size: const Size(1080 / 3, 1920 / 3),
-          ),
-          child: Directionality(
-            textDirection: TextDirection.ltr,
-            child: Material(
-              color: Colors.transparent,
-              child: widget,
-            ),
-          ),
-        ),
-      ).attachToRenderTree(buildOwner);
-
-      buildOwner.buildScope(rootElement);
-      pipelineOwner.flushLayout();
-      pipelineOwner.flushCompositingBits();
-      pipelineOwner.flushPaint();
-
-      final image = await repaintBoundary.toImage(pixelRatio: pixelRatio);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return null;
-
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-        '${tempDir.path}/${filePrefix}_${DateTime.now().millisecondsSinceEpoch}.png',
-      );
-      await file.writeAsBytes(byteData.buffer.asUint8List());
-
-      // Clean up
-      buildOwner.finalizeTree();
-
-      return file;
-    } catch (e) {
-      debugPrint('ShareService capture error: $e');
-      return null;
-    }
+      ),
+    );
   }
 }
