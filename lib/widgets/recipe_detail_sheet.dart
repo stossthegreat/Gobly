@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../models/recipe_result.dart';
 import '../services/saved_recipes_service.dart';
+import '../services/share_service.dart';
 
 /// Shows a full-screen recipe detail bottom sheet with hero image,
 /// ingredients, numbered instructions, and Save / Close actions.
@@ -300,58 +301,100 @@ class _RecipeDetailSheet extends StatelessWidget {
                         ),
                       );
                     }),
-                  if (canSave) ...[
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          await SavedRecipesService.instance.add({
-                            'title': recipe.title,
-                            'source': recipe.source.name,
-                            'sourceUrl': recipe.source.url,
-                            'time': recipe.time.display,
-                            'emoji': '\u{1F372}',
-                            'image': recipe.image,
-                            'rating': recipe.rating.value,
-                            'ingredients': recipe.ingredients,
-                            'steps': recipe.instructions,
-                            'category': 'Saved',
-                          });
-                          if (!context.mounted) return;
-                          HapticFeedback.lightImpact();
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${recipe.title} saved!'),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                  // Action buttons — Share always, Save when applicable
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      // Share button — always visible
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              HapticFeedback.lightImpact();
+                              await ShareService.shareRecipe(context, recipe);
+                            },
+                            icon: const Icon(Icons.share_rounded, size: 18),
+                            label: const Text(
+                              'Share',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
                               ),
-                              backgroundColor: AppColors.primary,
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.bookmark_add_rounded, size: 20),
-                        label: const Text(
-                          'Save Recipe',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: BorderSide(
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.4),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      if (canSave) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 52,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                await SavedRecipesService.instance.add({
+                                  'title': recipe.title,
+                                  'source': recipe.source.name,
+                                  'sourceUrl': recipe.source.url,
+                                  'time': recipe.time.display,
+                                  'emoji': '\u{1F372}',
+                                  'image': recipe.image,
+                                  'rating': recipe.rating.value,
+                                  'ingredients': recipe.ingredients,
+                                  'steps': recipe.instructions,
+                                  'category': 'Saved',
+                                });
+                                if (!context.mounted) return;
+                                HapticFeedback.lightImpact();
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                        Text('${recipe.title} saved!'),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius:
+                                          BorderRadius.circular(10),
+                                    ),
+                                    backgroundColor: AppColors.primary,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.bookmark_add_rounded,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Save',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),

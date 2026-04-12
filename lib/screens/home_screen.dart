@@ -7,6 +7,7 @@ import '../services/user_profile_service.dart';
 import '../services/saved_recipes_service.dart';
 import '../services/transcribe_service.dart';
 import '../services/cookbooks_service.dart';
+import '../services/share_service.dart';
 import 'settings_screen.dart';
 import 'create_recipe_screen.dart';
 import 'search_results_screen.dart';
@@ -202,10 +203,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   const SizedBox(height: 14),
                   _buildCookbooksSection(),
                   const SizedBox(height: 28),
-                  _buildSectionHeader(
-                    'Your Recipes',
-                    Icons.bookmark_rounded,
-                  ),
+                  _buildSavedRecipesHeader(),
                   const SizedBox(height: 14),
                   ListenableBuilder(
                     listenable: SavedRecipesService.instance,
@@ -1054,6 +1052,266 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSavedRecipesHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Icon(Icons.bookmark_rounded, color: AppColors.primary, size: 22),
+          const SizedBox(width: 8),
+          const Text(
+            'Your Recipes',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.4,
+            ),
+          ),
+          const Spacer(),
+          ListenableBuilder(
+            listenable: SavedRecipesService.instance,
+            builder: (context, _) {
+              final recipes = SavedRecipesService.instance.recipes;
+              if (recipes.length < 2) return const SizedBox.shrink();
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  _showShareCarouselSheet(recipes);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.share_rounded,
+                        size: 13,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Share',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Bottom sheet where user picks recipes for a carousel share.
+  void _showShareCarouselSheet(List<Map<String, dynamic>> recipes) {
+    final selected = <int>{};
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          maxChildSize: 0.95,
+          minChildSize: 0.5,
+          builder: (context, scrollController) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.borderLight,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Share meals',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Pick the meals to share as a carousel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      itemCount: recipes.length,
+                      itemBuilder: (context, index) {
+                        final recipe = recipes[index];
+                        final isSelected = selected.contains(index);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                setSheetState(() {
+                                  if (isSelected) {
+                                    selected.remove(index);
+                                  } else {
+                                    selected.add(index);
+                                  }
+                                });
+                                HapticFeedback.selectionClick();
+                              },
+                              borderRadius: BorderRadius.circular(14),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppColors.primarySoft
+                                      : AppColors.background,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? AppColors.primary
+                                            .withValues(alpha: 0.5)
+                                        : AppColors.borderLight,
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    _buildSavedThumbnail(recipe),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        recipe['title'] ?? 'Untitled',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 200),
+                                      width: 26,
+                                      height: 26,
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? AppColors.primary
+                                            : Colors.transparent,
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? AppColors.primary
+                                              : AppColors.border,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: isSelected
+                                          ? const Icon(
+                                              Icons.check_rounded,
+                                              size: 16,
+                                              color: Colors.white,
+                                            )
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      onPressed: selected.isEmpty
+                          ? null
+                          : () async {
+                              final picked = selected
+                                  .map((i) => recipes[i])
+                                  .toList();
+                              Navigator.pop(context);
+                              HapticFeedback.mediumImpact();
+                              await ShareService.shareCarousel(
+                                this.context,
+                                title: 'My Meals',
+                                recipes: picked,
+                              );
+                            },
+                      icon: const Icon(Icons.share_rounded, size: 18),
+                      label: Text(
+                        selected.isEmpty
+                            ? 'Select meals'
+                            : 'Share ${selected.length} ${selected.length == 1 ? "meal" : "meals"}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: AppColors.borderLight,
+                        disabledForegroundColor: AppColors.textHint,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
