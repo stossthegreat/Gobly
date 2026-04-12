@@ -242,14 +242,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        name.isEmpty ? 'Gobly' : 'Hi, $name',
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primary,
-                          letterSpacing: -0.5,
-                        ),
+                      Row(
+                        children: [
+                          Image.asset(
+                            'assets/playstore.png',
+                            width: 48,
+                            height: 48,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            name.isEmpty ? 'Gobly' : 'Hi, $name',
+                            style: const TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
