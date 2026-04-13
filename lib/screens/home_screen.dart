@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
+// url_launcher kept as dependency for future use
 import '../services/app_settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/recipe_card.dart';
@@ -20,6 +20,7 @@ import 'create_recipe_screen.dart';
 import 'search_results_screen.dart';
 import 'week_plan_result_screen.dart';
 import 'cookbook_screen.dart';
+import 'web_browser_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -545,8 +546,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Tap "Search Google" → small sheet with input → opens browser to
-  /// google.com/search?q=...
+  /// Opens the in-app browser with Google search. User browses recipe
+  /// sites and taps "Save to Gobly" to extract the recipe from whatever
+  /// page they're on. Like ReciMe's orange save button.
   void _showGoogleSearchSheet() {
     final controller = TextEditingController();
     showModalBottomSheet<void>(
@@ -579,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 20),
               const Text(
-                'Search Google',
+                'Search the web',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -588,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 6),
               Text(
-                'Opens in your browser',
+                'Browse any recipe site, tap Save to Gobly',
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
@@ -603,8 +605,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   hintText: 'e.g. "best carbonara recipe"',
                   hintStyle: TextStyle(color: AppColors.textHint),
                   prefixIcon: const Icon(
-                    Icons.public_rounded,
-                    color: Color(0xFF4285F4),
+                    Icons.search_rounded,
+                    color: AppColors.primary,
                   ),
                   filled: true,
                   fillColor: AppColors.background,
@@ -618,8 +620,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: const Color(0xFF4285F4),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
                       width: 1.5,
                     ),
                   ),
@@ -627,7 +629,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 onSubmitted: (value) {
                   if (value.trim().isNotEmpty) {
                     Navigator.pop(context);
-                    _openGoogleSearch(value.trim());
+                    _openInAppBrowser(value.trim());
                   }
                 },
               ),
@@ -639,19 +641,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   onPressed: () {
                     if (controller.text.trim().isNotEmpty) {
                       Navigator.pop(context);
-                      _openGoogleSearch(controller.text.trim());
+                      _openInAppBrowser(controller.text.trim());
                     }
                   },
-                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                  icon: const Icon(Icons.search_rounded, size: 18),
                   label: const Text(
-                    'Open in browser',
+                    'Search',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4285F4),
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -667,23 +669,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Future<void> _openGoogleSearch(String query) async {
-    final encoded = Uri.encodeQueryComponent('$query recipe');
-    final uri = Uri.parse('https://www.google.com/search?q=$encoded');
-    try {
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Could not open browser'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
-    } catch (_) {}
+  void _openInAppBrowser(String? query) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => WebBrowserScreen(initialSearch: query),
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _extractRecipeFromUrl(String url) async {

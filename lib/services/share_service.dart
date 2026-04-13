@@ -116,10 +116,12 @@ class ShareService {
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
             children: [
               Center(
                 child: Container(
@@ -206,6 +208,7 @@ class ShareService {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
