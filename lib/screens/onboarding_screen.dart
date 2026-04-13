@@ -52,83 +52,37 @@ class OnboardingScreen extends StatelessWidget {
                   letterSpacing: -1,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               // Killer headline
               const Text(
-                "What's for dinner?\nSolved.",
+                'Speak it.\nCook it.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
                   color: AppColors.textPrimary,
-                  letterSpacing: -0.5,
-                  height: 1.15,
+                  letterSpacing: -0.8,
+                  height: 1.1,
                 ),
               ),
               const SizedBox(height: 14),
-              // Subtitle
               Text(
-                'The AI agent that finds the highest-rated recipes '
-                'and plans your entire week in seconds.',
+                'Recipe. Meal plan. Grocery list.\nDone in seconds.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   color: AppColors.textSecondary,
-                  height: 1.5,
+                  height: 1.4,
                 ),
-              ),
-              const SizedBox(height: 36),
-              // 3 feature pills
-              _buildFeature(
-                Icons.mic_rounded,
-                'Say it',
-                'Voice or type what you want to eat',
-              ),
-              const SizedBox(height: 14),
-              _buildFeature(
-                Icons.auto_awesome_rounded,
-                'Get the best',
-                'Top-rated recipes from real food publishers',
-              ),
-              const SizedBox(height: 14),
-              _buildFeature(
-                Icons.calendar_month_rounded,
-                'Plan your week',
-                'Full meal plan + grocery list in seconds',
               ),
               const Spacer(flex: 3),
-              // Settings hint
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.tune_rounded,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Set your allergies, diet & preferences in Settings to personalise every result.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primary,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
+              // Settings hint — clear, not a tiny pill
+              Text(
+                'Personalise in Settings — allergies, diet, preferences.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textHint,
                 ),
               ),
               const SizedBox(height: 20),
@@ -167,6 +121,7 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   Widget _buildFeature(IconData icon, String title, String subtitle) {
     return Row(
       children: [

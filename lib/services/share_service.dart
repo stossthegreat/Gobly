@@ -142,19 +142,22 @@ class ShareService {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 16),
-              // The card wrapped in RepaintBoundary for capture
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: RepaintBoundary(
-                  key: captureKey,
-                  child: card,
+              const SizedBox(height: 12),
+              // The card — scaled down for preview, captured at full res
+              SizedBox(
+                height: 340,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: RepaintBoundary(
+                    key: captureKey,
+                    child: card,
+                  ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: 56,
                 child: ElevatedButton.icon(
                   onPressed: () async {
                     try {
