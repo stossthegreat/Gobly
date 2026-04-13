@@ -1873,6 +1873,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildInputBar(BuildContext context) {
+    // Rotating suggestions to beat decision paralysis
+    const suggestions = [
+      'Try: "find me something quick"',
+      'Try: "what should I eat tonight?"',
+      'Try: "healthy dinner under 30 min"',
+      'Try: "comfort food for a rainy day"',
+      'Try: "impress my date"',
+      'Try: "meal prep for the week"',
+    ];
+    final todaySuggestion =
+        suggestions[DateTime.now().minute % suggestions.length];
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1886,7 +1898,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Suggestion hint above the input
+            if (!_listening && !_transcribing)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 2),
+                child: Text(
+                  todaySuggestion,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textHint,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Row(
             children: [
@@ -2014,6 +2042,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
+        ),
+          ],
         ),
       ),
     );

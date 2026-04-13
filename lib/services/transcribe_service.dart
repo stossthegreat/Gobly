@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -24,14 +25,21 @@ class TranscribeService {
     }
 
     final tempDir = await getTemporaryDirectory();
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+
+    // iOS AAC produces a container Whisper can't decode.
+    // Use WAV on iOS (universally supported), AAC on Android (smaller).
+    final ext = isIos ? 'wav' : 'm4a';
+    final encoder = isIos ? AudioEncoder.wav : AudioEncoder.aacLc;
     final path =
-        '${tempDir.path}/gobly_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        '${tempDir.path}/gobly_voice_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
     await _recorder.start(
-      const RecordConfig(
-        encoder: AudioEncoder.aacLc,
+      RecordConfig(
+        encoder: encoder,
         bitRate: 64000,
-        sampleRate: 16000, // Whisper works great at 16kHz, smaller file
+        sampleRate: 16000,
         numChannels: 1,
       ),
       path: path,
@@ -78,11 +86,13 @@ class TranscribeService {
     try {
       final uri = Uri.parse('$backendUrl/api/transcribe');
       final request = http.MultipartRequest('POST', uri);
+      // Use the actual file extension so Whisper knows the format
+      final filename = path.endsWith('.wav') ? 'audio.wav' : 'audio.m4a';
       request.files.add(
         await http.MultipartFile.fromPath(
           'audio',
           path,
-          filename: 'audio.m4a',
+          filename: filename,
         ),
       );
 
