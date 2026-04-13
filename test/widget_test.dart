@@ -4,7 +4,7 @@ import 'package:gobly/main.dart';
 
 void main() {
   testWidgets('App loads smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const GoblyApp(showOnboarding: false));
+    await tester.pumpWidget(const GoblyApp(showOnboarding: false, firebaseReady: false));
     expect(find.text('Gobly'), findsOneWidget);
   });
 }

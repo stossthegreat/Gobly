@@ -16,36 +16,121 @@ import 'services/usage_service.dart';
 import 'services/analytics_service.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ),
-  );
-  // Initialize Firebase — MUST be first
-  await Firebase.initializeApp();
-  debugPrint('✅ Firebase initialized');
+  // Catch ALL flutter errors — never show red screen to users
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('❌ FLUTTER ERROR: ${details.exception}');
+    debugPrint('❌ STACK: ${details.stack}');
+  };
 
-  // Load all services + check onboarding status in parallel
-  late final bool onboardingSeen;
-  await Future.wait([
-    UserProfileService.instance.load(),
-    MealPlanService.instance.load(),
-    SavedRecipesService.instance.load(),
-    AppSettingsService.instance.load(),
-    CookbooksService.instance.load(),
-    GroceryService.instance.load(),
-    UsageService.instance.load(),
-    OnboardingScreen.hasBeenSeen().then((v) => onboardingSeen = v),
-  ]);
-  runApp(GoblyApp(showOnboarding: !onboardingSeen));
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    // Initialize Firebase — graceful fallback if config is missing
+    // (e.g. iOS without GoogleService-Info.plist)
+    bool firebaseReady = false;
+    try {
+      await Firebase.initializeApp();
+      firebaseReady = true;
+      debugPrint('✅ Firebase initialized');
+    } catch (e) {
+      debugPrint('⚠️ Firebase init failed (app continues without analytics): $e');
+    }
+
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
+
+    // Load all services + check onboarding status in parallel
+    late final bool onboardingSeen;
+    await Future.wait([
+      UserProfileService.instance.load(),
+      MealPlanService.instance.load(),
+      SavedRecipesService.instance.load(),
+      AppSettingsService.instance.load(),
+      CookbooksService.instance.load(),
+      GroceryService.instance.load(),
+      UsageService.instance.load(),
+      OnboardingScreen.hasBeenSeen().then((v) => onboardingSeen = v),
+    ]);
+    debugPrint('✅ All services loaded');
+
+    // Log app open
+    if (firebaseReady) {
+      try {
+        AnalyticsService.instance.logAppOpen();
+      } catch (_) {}
+    }
+
+    // Replace red error screens with invisible widgets in production
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      debugPrint('❌ Widget build error: ${details.exception}');
+      return const SizedBox.shrink();
+    };
+
+    runApp(GoblyApp(
+      showOnboarding: !onboardingSeen,
+      firebaseReady: firebaseReady,
+    ));
+  } catch (e, stack) {
+    // App crashed during init — show error on screen instead of white death
+    debugPrint('❌ CRITICAL INIT CRASH: $e');
+    debugPrint('❌ STACK: $stack');
+    runApp(MaterialApp(
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '⚠️ APP INIT CRASHED',
+                  style: TextStyle(
+                    color: Color(0xFFCCFF00),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  e.toString(),
+                  style: const TextStyle(
+                    color: Color(0xFFFF4444),
+                    fontSize: 14,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  stack.toString().split('\n').take(10).join('\n'),
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
+  }
 }
 
 class GoblyApp extends StatelessWidget {
   final bool showOnboarding;
+  final bool firebaseReady;
 
-  const GoblyApp({super.key, required this.showOnboarding});
+  const GoblyApp({
+    super.key,
+    required this.showOnboarding,
+    required this.firebaseReady,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +138,8 @@ class GoblyApp extends StatelessWidget {
       title: 'Gobly',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-      navigatorObservers: [AnalyticsService.instance.observer],
+      navigatorObservers:
+          firebaseReady ? [AnalyticsService.instance.observer] : [],
       home: showOnboarding ? const _OnboardingGate() : const AppShell(),
     );
   }
