@@ -1,4 +1,4 @@
-package com.gobly.app
+package com.gobly.gobly
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,26 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import type { TrendingRecipe } from '../data/trending.js';
 import { getTodaysTrending, TRENDING_RECIPES } from '../data/trending.js';
-import { fetchSpoonacularTrending } from '../services/spoonacular.js';
 import { fetchParallel } from '../services/fetcher.js';
 import { extractRecipeFromHtml } from '../services/jsonld.js';
 
-// In-memory cache — refreshes once per day
-let cachedRecipes: TrendingRecipe[] | null = null;
-let cachedDate = '';
-
-// Admin-added recipes (persisted in memory — survives until Railway redeploy)
+// Admin-added recipes (in memory — survives until Railway redeploy)
 const adminRecipes: TrendingRecipe[] = [];
 
 /**
  * GET /api/trending
  *
- * Priority order:
- * 1. Spoonacular API (real, fresh, images always load) — called once/day
- * 2. Curated fallback (hand-picked elite recipes) — if Spoonacular fails
- *
- * Cached for 24 hours in memory. Zero cost per user request.
- * Add SPOONACULAR_API_KEY to Railway to activate live trending.
+ * Returns curated + admin-added trending recipes.
+ * Admin recipes go on top, curated fill the rest.
  */
 export async function registerTrendingRoute(app: FastifyInstance): Promise<void> {
   app.get('/api/trending', async (request) => {
@@ -28,72 +19,28 @@ export async function registerTrendingRoute(app: FastifyInstance): Promise<void>
     const count = Math.min(Math.max(parseInt(countParam || '8', 10) || 8, 1), 20);
     const today = new Date().toISOString().slice(0, 10);
 
-    // Merge admin-added recipes on top of cached/curated
-    const mergeAdmin = (base: TrendingRecipe[]) => {
-      // Admin recipes go first, then fill from base (deduplicated)
-      const adminTitles = new Set(adminRecipes.map((r) => r.title.toLowerCase()));
-      const deduped = base.filter(
-        (r) => !adminTitles.has(r.title.toLowerCase()),
-      );
-      return [...adminRecipes, ...deduped];
-    };
+    // Admin recipes first, then curated (deduplicated)
+    const adminTitles = new Set(adminRecipes.map((r) => r.title.toLowerCase()));
+    const curated = getTodaysTrending(count + 5).filter(
+      (r) => !adminTitles.has(r.title.toLowerCase()),
+    );
+    const merged = [...adminRecipes, ...curated];
 
-    // Return cache if still fresh (same day)
-    if (cachedRecipes && cachedDate === today) {
-      const merged = mergeAdmin(cachedRecipes);
-      return {
-        recipes: merged.slice(0, count),
-        date: today,
-        source: 'cache',
-      };
-    }
-
-    // Try Spoonacular first
-    const spoonKey = process.env.SPOONACULAR_API_KEY;
-    if (spoonKey) {
-      try {
-        const recipes = await fetchSpoonacularTrending(spoonKey, count + 4);
-        if (recipes.length > 0) {
-          cachedRecipes = recipes;
-          cachedDate = today;
-          app.log.info(
-            `Trending refreshed from Spoonacular: ${recipes.length} recipes`,
-          );
-          return {
-            recipes: recipes.slice(0, count),
-            date: today,
-            source: 'spoonacular',
-          };
-        }
-      } catch (err) {
-        app.log.warn({ err }, 'Spoonacular trending fetch failed, using fallback');
-      }
-    }
-
-    // Fallback to curated list
-    const fallback = getTodaysTrending(count);
-    cachedRecipes = fallback;
-    cachedDate = today;
-    const merged = mergeAdmin(fallback);
     return {
       recipes: merged.slice(0, count),
       date: today,
-      source: 'curated',
+      adminCount: adminRecipes.length,
     };
   });
 
   /**
    * POST /api/trending/add
    *
-   * Admin endpoint — paste a recipe URL and it auto-extracts everything.
-   * The recipe gets added to the top of trending immediately.
+   * Paste a recipe URL → backend auto-extracts everything → adds to trending.
    *
-   * Body: { "url": "https://...", "category": "VIRAL" (optional) }
-   *
-   * Usage:
-   * curl -X POST https://your-backend.up.railway.app/api/trending/add \
+   * curl -X POST https://backend/api/trending/add \
    *   -H "Content-Type: application/json" \
-   *   -d '{"url":"https://www.recipetineats.com/butter-chicken/"}'
+   *   -d '{"url":"https://recipetineats.com/butter-chicken/","category":"VIRAL"}'
    */
   app.post<{
     Body: { url: string; category?: string };
@@ -115,8 +62,7 @@ export async function registerTrendingRoute(app: FastifyInstance): Promise<void>
         return reply.status(422).send({ error: 'No recipe found on this page' });
       }
 
-      // Pick an emoji based on title
-      const emoji = pickEmoji(recipe.title);
+      const emoji = _pickEmoji(recipe.title);
 
       const trending: TrendingRecipe = {
         id: `admin_${Date.now()}`,
@@ -132,9 +78,6 @@ export async function registerTrendingRoute(app: FastifyInstance): Promise<void>
       };
 
       adminRecipes.unshift(trending);
-      // Invalidate cache so next GET picks up the new recipe
-      cachedDate = '';
-
       app.log.info(`Admin added trending: "${recipe.title}" from ${url}`);
 
       return {
@@ -152,7 +95,7 @@ export async function registerTrendingRoute(app: FastifyInstance): Promise<void>
 
   /**
    * GET /api/trending/admin
-   * List all admin-added recipes (for debugging).
+   * List all admin-added recipes.
    */
   app.get('/api/trending/admin', async () => ({
     count: adminRecipes.length,
@@ -160,7 +103,7 @@ export async function registerTrendingRoute(app: FastifyInstance): Promise<void>
   }));
 }
 
-function pickEmoji(title: string): string {
+function _pickEmoji(title: string): string {
   const t = title.toLowerCase();
   if (t.includes('chicken')) return '🍗';
   if (t.includes('pasta') || t.includes('spaghetti')) return '🍝';

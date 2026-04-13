@@ -46,7 +46,7 @@ class _RatingDialogState extends State<_RatingDialog> {
       // TODO: Replace with actual store URLs when published
       try {
         await launchUrl(
-          Uri.parse('market://details?id=com.gobly.app'),
+          Uri.parse('market://details?id=com.gobly.gobly'),
           mode: LaunchMode.externalApplication,
         );
       } catch (_) {
