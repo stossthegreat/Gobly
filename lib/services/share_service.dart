@@ -27,6 +27,7 @@ class ShareService {
       rating: recipe.rating.value,
       time: recipe.time.display,
       description: recipe.description.isNotEmpty ? recipe.description : null,
+      ingredients: recipe.ingredients.isNotEmpty ? recipe.ingredients : null,
     );
 
     await _showSharePreview(
@@ -52,6 +53,7 @@ class ShareService {
       source: recipe['source'] as String? ?? '',
       rating: (recipe['rating'] as num?)?.toDouble() ?? 0.0,
       time: recipe['time'] as String? ?? '',
+      ingredients: (recipe['ingredients'] as List?)?.cast<String>(),
     );
 
     await _showSharePreview(
@@ -85,6 +87,7 @@ class ShareService {
       source: first['source'] as String? ?? '',
       rating: (first['rating'] as num?)?.toDouble() ?? 0.0,
       time: first['time'] as String? ?? '',
+      ingredients: (first['ingredients'] as List?)?.cast<String>(),
     );
 
     final mealList = recipes

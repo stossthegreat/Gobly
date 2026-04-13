@@ -14,6 +14,7 @@ class ShareRecipeCard extends StatelessWidget {
   final String time;
   final String? calories;
   final String? description;
+  final List<String>? ingredients;
 
   const ShareRecipeCard({
     super.key,
@@ -25,6 +26,7 @@ class ShareRecipeCard extends StatelessWidget {
     required this.time,
     this.calories,
     this.description,
+    this.ingredients,
   });
 
   @override
@@ -148,19 +150,33 @@ class ShareRecipeCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                    if (description != null && description!.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        description!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                          height: 1.4,
+                    // Always show a description — use real description if
+                    // available, otherwise show first 3 ingredients as a teaser
+                    Builder(builder: (_) {
+                      String displayText = '';
+                      if (description != null && description!.isNotEmpty) {
+                        displayText = description!;
+                      } else if (ingredients != null && ingredients!.isNotEmpty) {
+                        displayText = ingredients!
+                            .take(3)
+                            .map((i) => i.length > 40 ? '${i.substring(0, 40)}...' : i)
+                            .join(' · ');
+                      }
+                      if (displayText.isEmpty) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          displayText,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      );
+                    }),
                     const Spacer(),
                     // Footer
                     Container(
