@@ -239,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   const SizedBox(height: 16),
                   _buildSectionHeader(
-                    'Trending Today',
+                    'Trending',
                     Icons.local_fire_department_rounded,
                   ),
                   const SizedBox(height: 14),
