@@ -29,7 +29,7 @@ class RecipeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 165,
+      width: 150,
       margin: const EdgeInsets.only(right: 12),
       child: Material(
         color: Colors.transparent,
@@ -59,8 +59,8 @@ class RecipeCard extends StatelessWidget {
                   // Hero background — real image or gradient + emoji
                   if (imageUrl != null && imageUrl!.isNotEmpty)
                     SizedBox(
-                      height: 220,
-                      width: 165,
+                      height: 200,
+                      width: 150,
                       child: Image.network(
                         imageUrl!,
                         fit: BoxFit.cover,
@@ -87,8 +87,8 @@ class RecipeCard extends StatelessWidget {
                     )
                   else ...[
                     Container(
-                      height: 220,
-                      width: 165,
+                      height: 200,
+                      width: 150,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
