@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/planner_screen.dart';
@@ -12,6 +13,7 @@ import 'services/app_settings_service.dart';
 import 'services/cookbooks_service.dart';
 import 'services/grocery_service.dart';
 import 'services/usage_service.dart';
+import 'services/analytics_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +23,10 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+  // Initialize Firebase — MUST be first
+  await Firebase.initializeApp();
+  debugPrint('✅ Firebase initialized');
+
   // Load all services + check onboarding status in parallel
   late final bool onboardingSeen;
   await Future.wait([
@@ -47,6 +53,7 @@ class GoblyApp extends StatelessWidget {
       title: 'Gobly',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      navigatorObservers: [AnalyticsService.instance.observer],
       home: showOnboarding ? const _OnboardingGate() : const AppShell(),
     );
   }
