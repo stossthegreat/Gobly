@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// A beautiful 1080x1920 (9:16) recipe card designed to be captured
-/// as a PNG and shared to Instagram Stories, TikTok, iMessage, etc.
-/// Renders in an offscreen RepaintBoundary.
+/// Full-bleed 9:16 share card designed for Instagram Stories and TikTok.
+/// The food photo IS the card. Everything else is just a subtle overlay.
+/// No borders, no boxes, no menu layout — just photography + type.
 class ShareRecipeCard extends StatelessWidget {
   final String title;
   final String? imageUrl;
@@ -19,11 +19,11 @@ class ShareRecipeCard extends StatelessWidget {
   const ShareRecipeCard({
     super.key,
     required this.title,
-    this.imageUrl,
-    this.localImagePath,
     required this.source,
     required this.rating,
     required this.time,
+    this.imageUrl,
+    this.localImagePath,
     this.calories,
     this.description,
     this.ingredients,
@@ -35,181 +35,258 @@ class ShareRecipeCard extends StatelessWidget {
       width: 1080 / 3,
       height: 1920 / 3,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(0),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with logo
-            Container(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-              child: Row(
-                children: [
-                  Image.asset(
-                    'assets/logo.png',
-                    width: 32,
-                    height: 32,
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Gobly',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Hero image
-            Expanded(
-              flex: 5,
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 14),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: _buildImage(),
-                ),
-              ),
-            ),
-            // Content
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                        letterSpacing: -0.4,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 10),
-                    // Meta chips row
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        if (rating > 0)
-                          _buildChip(
-                            Icons.star_rounded,
-                            rating.toStringAsFixed(1),
-                            AppColors.star,
-                          ),
-                        if (time.isNotEmpty)
-                          _buildChip(
-                            Icons.access_time_rounded,
-                            time,
-                            AppColors.primary,
-                          ),
-                        if (calories != null && calories!.isNotEmpty)
-                          _buildChip(
-                            Icons.local_fire_department_rounded,
-                            calories!,
-                            const Color(0xFFFF6B35),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    // Source
-                    if (source.isNotEmpty)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.public_rounded,
-                            size: 13,
-                            color: AppColors.textHint,
-                          ),
-                          const SizedBox(width: 5),
-                          Flexible(
-                            child: Text(
-                              source,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    // Always show a description — use real description if
-                    // available, otherwise show first 3 ingredients as a teaser
-                    Builder(builder: (_) {
-                      String displayText = '';
-                      if (description != null && description!.isNotEmpty) {
-                        displayText = description!;
-                      } else if (ingredients != null && ingredients!.isNotEmpty) {
-                        displayText = ingredients!
-                            .take(3)
-                            .map((i) => i.length > 40 ? '${i.substring(0, 40)}...' : i)
-                            .join(' · ');
-                      }
-                      if (displayText.isEmpty) return const SizedBox.shrink();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          displayText,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                            height: 1.4,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }),
-                    const Spacer(),
-                    // Footer
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Image.asset(
-                            'assets/logo.png',
-                            width: 16,
-                            height: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Made with Gobly',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // FULL-BLEED FOOD PHOTO — the hero, the whole card
+          Positioned.fill(
+            child: _buildFullBleedImage(),
+          ),
+
+          // DARK GRADIENT OVERLAY — bottom third only, for text legibility
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.0, 0.35, 0.65, 1.0],
+                  colors: [
+                    Colors.black.withValues(alpha: 0.3),
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.85),
                   ],
                 ),
+              ),
+            ),
+          ),
+
+          // TOP — tiny Gobly mark, rating pill
+          Positioned(
+            top: 20,
+            left: 20,
+            right: 20,
+            child: Row(
+              children: [
+                // Gobly logo + name — frosted pill
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'assets/logo.png',
+                        width: 16,
+                        height: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'gobly',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                // Rating pill
+                if (rating > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 14,
+                          color: Color(0xFFFFD700),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // BOTTOM — title + details on the dark gradient
+          Positioned(
+            bottom: 20,
+            left: 20,
+            right: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Recipe title — big, bold, max impact
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.8,
+                    height: 1.1,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 20,
+                        color: Colors.black,
+                      ),
+                    ],
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                // Description or ingredients teaser
+                Builder(builder: (_) {
+                  String text = '';
+                  if (description != null && description!.isNotEmpty) {
+                    text = description!;
+                  } else if (ingredients != null &&
+                      ingredients!.isNotEmpty) {
+                    text = ingredients!
+                        .take(3)
+                        .map((i) =>
+                            i.length > 35 ? '${i.substring(0, 35)}...' : i)
+                        .join('  ·  ');
+                  }
+                  if (text.isEmpty) return const SizedBox.shrink();
+                  return Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }),
+                const SizedBox(height: 12),
+                // Meta row — time + source in a clean row
+                Row(
+                  children: [
+                    if (time.isNotEmpty) ...[
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 13,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    if (source.isNotEmpty)
+                      Expanded(
+                        child: Text(
+                          source,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullBleedImage() {
+    if (localImagePath != null &&
+        localImagePath!.isNotEmpty &&
+        File(localImagePath!).existsSync()) {
+      return Image.file(
+        File(localImagePath!),
+        fit: BoxFit.cover,
+      );
+    }
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      return Image.network(
+        imageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildFallback(),
+      );
+    }
+    return _buildFallback();
+  }
+
+  Widget _buildFallback() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1A3A1A),
+            Color(0xFF0D1F0D),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/logo.png',
+              width: 80,
+              height: 80,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -0.5,
               ),
             ),
           ],
@@ -217,76 +294,9 @@ class ShareRecipeCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildImage() {
-    if (localImagePath != null &&
-        localImagePath!.isNotEmpty &&
-        File(localImagePath!).existsSync()) {
-      return Image.file(
-        File(localImagePath!),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-      );
-    }
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
-      return Image.network(
-        imageUrl!,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (_, __, ___) => _buildPlaceholder(),
-      );
-    }
-    return _buildPlaceholder();
-  }
-
-  Widget _buildPlaceholder() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFE8F5E9), Color(0xFFA5D6A7)],
-        ),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.restaurant_rounded,
-          color: AppColors.primary,
-          size: 64,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChip(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-/// Cover card for a carousel share — shows a meal collection summary.
+/// Cover card for a carousel share.
 class ShareCarouselCover extends StatelessWidget {
   final String title;
   final int mealCount;
@@ -304,136 +314,88 @@ class ShareCarouselCover extends StatelessWidget {
     return Container(
       width: 1080 / 3,
       height: 1920 / 3,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF43A047)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Logo
-              Row(
-                children: [
-                  Image.asset(
-                    'assets/logo.png',
-                    width: 36,
-                    height: 36,
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Gobly',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              // Title
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '$mealCount meals',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Meal list preview
-              ...mealNames.take(7).map(
-                    (name) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              name,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              if (mealNames.length > 7)
+      color: const Color(0xFF0D1F0D),
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            // Logo
+            Row(
+              children: [
+                Image.asset('assets/logo.png', width: 28, height: 28),
+                const SizedBox(width: 8),
                 Text(
-                  '+${mealNames.length - 7} more',
+                  'gobly',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                     color: Colors.white.withValues(alpha: 0.6),
-                    fontStyle: FontStyle.italic,
+                    letterSpacing: 0.5,
                   ),
                 ),
-              const Spacer(),
-              // Footer
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 14,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'Planned with Gobly',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
+              ],
+            ),
+            const Spacer(flex: 2),
+            // Title
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -1,
+                height: 1.05,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 5,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$mealCount meals',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            // Meal list
+            ...mealNames.take(7).map(
+                  (name) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        height: 1.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+            if (mealNames.length > 7)
+              Text(
+                '+${mealNames.length - 7} more',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.4),
+                ),
+              ),
+            const Spacer(flex: 3),
+          ],
         ),
       ),
     );
