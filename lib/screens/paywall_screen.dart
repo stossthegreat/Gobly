@@ -99,7 +99,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   Icons.tune_rounded, 'Ingredient scaling for any serving size'),
               const SizedBox(height: 14),
               _feature(Icons.menu_book_rounded, 'Unlimited cookbooks'),
-              const Spacer(flex: 2),
+              const Spacer(flex: 1),
               // Pricing cards — identical height
               Row(
                 children: [
@@ -119,7 +119,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       price: '\$29.99',
                       sub: '/year',
                       badge: 'SAVE 50%',
-                      perDay: '\$0.08/day',
+                      perDay: '7-day free trial',
                       isSelected: _annual,
                       onTap: () => setState(() => _annual = true),
                     ),
@@ -158,7 +158,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                   ),
                   child: Text(
-                    _annual ? 'Subscribe — \$29.99/year' : 'Subscribe — \$4.99/month',
+                    _annual ? 'Start 7-Day Free Trial' : 'Subscribe — \$4.99/month',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -168,6 +168,22 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               const SizedBox(height: 10),
+              // Free-trial disclaimer (annual only) — required for App Store clarity
+              if (_annual)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    'Free for 7 days, then \$29.99/year. Cancel anytime in your '
+                    'App Store settings before the trial ends and you won\'t be charged.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.4,
+                      color: Colors.white.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ),
+              if (_annual) const SizedBox(height: 8),
               // Restore + legal links
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
