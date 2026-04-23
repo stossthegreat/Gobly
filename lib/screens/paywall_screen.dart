@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+
+import '../services/analytics_service.dart';
+import '../services/iap_service.dart';
 import '../theme/app_theme.dart';
 
 /// Full-screen dark paywall.
@@ -15,6 +19,9 @@ class PaywallScreen extends StatefulWidget {
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _showClose = false;
   bool _annual = true;
+  bool _purchasing = false;
+
+  IapService get _iap => IapService.instance;
 
   @override
   void initState() {
@@ -22,6 +29,101 @@ class _PaywallScreenState extends State<PaywallScreen> {
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _showClose = true);
     });
+
+    AnalyticsService.instance.logPaywallView(widget.triggerText ?? 'unknown');
+
+    _iap.addListener(_onIapChanged);
+    // If offerings haven't loaded yet (e.g. user opens paywall during cold
+    // start), kick a refresh so the prices appear as soon as possible.
+    if (_iap.currentOffering == null) {
+      _iap.refreshOfferings();
+    }
+  }
+
+  @override
+  void dispose() {
+    _iap.removeListener(_onIapChanged);
+    super.dispose();
+  }
+
+  void _onIapChanged() {
+    if (!mounted) return;
+    if (_iap.isPro) {
+      // Entitlement just went active (e.g. via restore from another listener).
+      Navigator.of(context).maybePop();
+      return;
+    }
+    setState(() {});
+  }
+
+  Package? get _selectedPackage {
+    final offering = _iap.currentOffering;
+    if (offering == null) return null;
+    return _annual ? offering.annual : offering.monthly;
+  }
+
+  String get _monthlyPrice =>
+      _iap.currentOffering?.monthly?.storeProduct.priceString ?? r'$4.99';
+
+  String get _annualPrice =>
+      _iap.currentOffering?.annual?.storeProduct.priceString ?? r'$29.99';
+
+  Future<void> _onSubscribePressed() async {
+    if (_purchasing) return;
+    HapticFeedback.mediumImpact();
+    AnalyticsService.instance.logPaywallSubscribeAttempt(_annual);
+
+    final package = _selectedPackage;
+    if (package == null) {
+      _showSnack(
+        _iap.isConfigured
+            ? 'Subscriptions are temporarily unavailable. Try again shortly.'
+            : 'Subscriptions are not configured for this build.',
+      );
+      return;
+    }
+
+    setState(() => _purchasing = true);
+    final result = await _iap.purchase(package);
+    if (!mounted) return;
+    setState(() => _purchasing = false);
+
+    if (result.success) {
+      _showSnack('Welcome to Gobly Pro!');
+      Navigator.of(context).maybePop();
+    } else if (result.cancelled) {
+      // User dismissed the sheet — say nothing.
+    } else {
+      _showSnack(result.error ?? 'Purchase failed. Try again.');
+    }
+  }
+
+  Future<void> _onRestorePressed() async {
+    if (_purchasing) return;
+    setState(() => _purchasing = true);
+    final restored = await _iap.restore();
+    if (!mounted) return;
+    setState(() => _purchasing = false);
+
+    if (restored) {
+      _showSnack('Pro restored. Welcome back!');
+      Navigator.of(context).maybePop();
+    } else {
+      _showSnack('No active subscription found on this Apple ID.');
+    }
+  }
+
+  void _showSnack(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        backgroundColor: AppColors.primary,
+      ),
+    );
   }
 
   @override
@@ -106,7 +208,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   Expanded(
                     child: _priceCard(
                       label: 'Monthly',
-                      price: '\$4.99',
+                      price: _monthlyPrice,
                       sub: '/month',
                       isSelected: !_annual,
                       onTap: () => setState(() => _annual = false),
@@ -116,7 +218,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   Expanded(
                     child: _priceCard(
                       label: 'Annual',
-                      price: '\$29.99',
+                      price: _annualPrice,
                       sub: '/year',
                       badge: 'SAVE 50%',
                       perDay: '7-day free trial',
@@ -132,39 +234,38 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: () {
-                    HapticFeedback.mediumImpact();
-                    // TODO: Wire RevenueCat purchase here
-                    // For now show coming soon message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text(
-                          'Subscriptions launching very soon!',
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        backgroundColor: AppColors.primary,
-                      ),
-                    );
-                  },
+                  onPressed: _purchasing ? null : _onSubscribePressed,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        AppColors.primary.withValues(alpha: 0.6),
+                    disabledForegroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: Text(
-                    _annual ? 'Start 7-Day Free Trial' : 'Subscribe — \$4.99/month',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
+                  child: _purchasing
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          _annual
+                              ? 'Start 7-Day Free Trial'
+                              : 'Subscribe — $_monthlyPrice/month',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -173,7 +274,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
-                    'Free for 7 days, then \$29.99/year. Cancel anytime in your '
+                    'Free for 7 days, then $_annualPrice/year. Cancel anytime in your '
                     'App Store settings before the trial ends and you won\'t be charged.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -188,9 +289,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _smallLink('Restore purchase', () {
-                    // TODO: Restore purchases
-                  }),
+                  _smallLink('Restore purchase', _onRestorePressed),
                   _dot(),
                   _smallLink('Terms', () => _showLegal(context, 'terms')),
                   _dot(),

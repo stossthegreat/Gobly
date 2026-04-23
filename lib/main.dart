@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -14,6 +16,7 @@ import 'services/cookbooks_service.dart';
 import 'services/grocery_service.dart';
 import 'services/usage_service.dart';
 import 'services/analytics_service.dart';
+import 'services/iap_service.dart';
 
 void main() async {
   // Catch ALL flutter errors — never show red screen to users
@@ -56,6 +59,11 @@ void main() async {
       OnboardingScreen.hasBeenSeen().then((v) => onboardingSeen = v),
     ]);
     debugPrint('✅ All services loaded');
+
+    // Initialize RevenueCat after UsageService is loaded so the entitlement
+    // callback can mirror Pro status into UsageService. Failures are tolerated:
+    // the app still runs, the paywall just won't be able to start a purchase.
+    unawaited(IapService.instance.init());
 
     // Log app open
     if (firebaseReady) {
