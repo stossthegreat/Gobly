@@ -122,9 +122,9 @@ class RevenueCatService extends ChangeNotifier {
       return GoblyPurchaseResult.notConfigured;
     }
     try {
-      final result = await Purchases.purchasePackage(package);
+      final customerInfo = await Purchases.purchasePackage(package);
       final active =
-          result.customerInfo.entitlements.active.containsKey(entitlementId);
+          customerInfo.entitlements.active.containsKey(entitlementId);
       if (active) {
         await UsageService.instance.setPro(true);
         return GoblyPurchaseResult.success;
