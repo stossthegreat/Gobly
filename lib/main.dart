@@ -14,6 +14,7 @@ import 'services/cookbooks_service.dart';
 import 'services/grocery_service.dart';
 import 'services/usage_service.dart';
 import 'services/analytics_service.dart';
+import 'services/revenuecat_service.dart';
 
 void main() async {
   // Catch ALL flutter errors — never show red screen to users
@@ -56,6 +57,11 @@ void main() async {
       OnboardingScreen.hasBeenSeen().then((v) => onboardingSeen = v),
     ]);
     debugPrint('✅ All services loaded');
+
+    // Initialize RevenueCat after UsageService so the entitlement sync has
+    // somewhere to write. Runs in the background — never blocks app start.
+    // ignore: discarded_futures
+    RevenueCatService.instance.init();
 
     // Log app open
     if (firebaseReady) {

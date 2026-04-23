@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import '../theme/app_theme.dart';
+import '../services/revenuecat_service.dart';
 
 /// Full-screen dark paywall.
 class PaywallScreen extends StatefulWidget {
@@ -15,6 +17,8 @@ class PaywallScreen extends StatefulWidget {
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _showClose = false;
   bool _annual = true;
+  bool _purchasing = false;
+  Offerings? _offerings;
 
   @override
   void initState() {
@@ -22,6 +26,90 @@ class _PaywallScreenState extends State<PaywallScreen> {
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _showClose = true);
     });
+    _loadOfferings();
+  }
+
+  Future<void> _loadOfferings() async {
+    final offerings = await RevenueCatService.instance.loadOfferings();
+    if (mounted) setState(() => _offerings = offerings);
+  }
+
+  Package? _selectedPackage() {
+    final current = _offerings?.current;
+    if (current == null) return null;
+    return _annual ? current.annual : current.monthly;
+  }
+
+  Future<void> _handlePurchase() async {
+    if (_purchasing) return;
+    HapticFeedback.mediumImpact();
+
+    final pkg = _selectedPackage();
+    if (pkg == null) {
+      _showSnack(
+        'Subscriptions are not available right now. Please try again later.',
+      );
+      return;
+    }
+
+    setState(() => _purchasing = true);
+    final result = await RevenueCatService.instance.purchase(pkg);
+    if (!mounted) return;
+    setState(() => _purchasing = false);
+
+    switch (result) {
+      case GoblyPurchaseResult.success:
+        _showSnack('Welcome to Gobly Pro!');
+        Navigator.of(context).pop(true);
+        break;
+      case GoblyPurchaseResult.cancelled:
+        // Silent — user backed out.
+        break;
+      case GoblyPurchaseResult.notEntitled:
+        _showSnack('Purchase completed but entitlement not active yet. '
+            'Try Restore Purchase.');
+        break;
+      case GoblyPurchaseResult.notConfigured:
+        _showSnack('Payments aren\'t configured in this build.');
+        break;
+      case GoblyPurchaseResult.error:
+        _showSnack('Purchase failed. Please try again.');
+        break;
+    }
+  }
+
+  Future<void> _handleRestore() async {
+    HapticFeedback.selectionClick();
+    final result = await RevenueCatService.instance.restore();
+    if (!mounted) return;
+    switch (result) {
+      case GoblyRestoreResult.restored:
+        _showSnack('Pro restored. Welcome back!');
+        Navigator.of(context).pop(true);
+        break;
+      case GoblyRestoreResult.nothingToRestore:
+        _showSnack('No previous purchases found on this account.');
+        break;
+      case GoblyRestoreResult.notConfigured:
+        _showSnack('Payments aren\'t configured in this build.');
+        break;
+      case GoblyRestoreResult.error:
+        _showSnack('Restore failed. Please try again.');
+        break;
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        backgroundColor: AppColors.primary,
+      ),
+    );
   }
 
   @override
@@ -132,23 +220,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: () {
-                    HapticFeedback.mediumImpact();
-                    // TODO: Wire RevenueCat purchase here
-                    // For now show coming soon message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text(
-                          'Subscriptions launching very soon!',
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        backgroundColor: AppColors.primary,
-                      ),
-                    );
-                  },
+                  onPressed: _purchasing ? null : _handlePurchase,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -157,14 +229,25 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: Text(
-                    _annual ? 'Start 7-Day Free Trial' : 'Subscribe — \$4.99/month',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
+                  child: _purchasing
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          _annual
+                              ? 'Start 7-Day Free Trial'
+                              : 'Subscribe — \$4.99/month',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -188,9 +271,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _smallLink('Restore purchase', () {
-                    // TODO: Restore purchases
-                  }),
+                  _smallLink('Restore purchase', _handleRestore),
                   _dot(),
                   _smallLink('Terms', () => _showLegal(context, 'terms')),
                   _dot(),
