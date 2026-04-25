@@ -8,6 +8,8 @@ import '../services/recipe_search_service.dart';
 import '../services/meal_plan_service.dart';
 import '../services/saved_recipes_service.dart';
 import '../services/cookbooks_service.dart';
+import '../services/usage_service.dart';
+import 'paywall_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -923,45 +925,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildHouseholdSize() {
-    return Row(
+    final isPro = UsageService.instance.isPro;
+    // Free users are locked to 1. Force the draft to match so the AI and the
+    // detail sheet always render 1-serving until they upgrade.
+    if (!isPro && _draft.householdSize != 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _draft = _draft.copyWith(householdSize: 1));
+        }
+      });
+    }
+    return Column(
       children: [
-        _buildCountButton(
-          Icons.remove_rounded,
-          () {
-            if (_draft.householdSize > 1) {
-              setState(() =>
-                  _draft = _draft.copyWith(householdSize: _draft.householdSize - 1));
-              HapticFeedback.lightImpact();
-            }
-          },
-        ),
-        Expanded(
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: Text(
-                '${_draft.householdSize}',
-                key: ValueKey(_draft.householdSize),
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+        Row(
+          children: [
+            _buildCountButton(
+              Icons.remove_rounded,
+              () {
+                if (!isPro) {
+                  _openPaywall();
+                  return;
+                }
+                if (_draft.householdSize > 1) {
+                  setState(() =>
+                      _draft = _draft.copyWith(householdSize: _draft.householdSize - 1));
+                  HapticFeedback.lightImpact();
+                }
+              },
+            ),
+            Expanded(
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: Text(
+                    '${_draft.householdSize}',
+                    key: ValueKey(_draft.householdSize),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: isPro ? AppColors.primary : AppColors.textHint,
+                    ),
+                  ),
                 ),
               ),
             ),
+            _buildCountButton(
+              isPro ? Icons.add_rounded : Icons.lock_rounded,
+              () {
+                if (!isPro) {
+                  _openPaywall();
+                  return;
+                }
+                if (_draft.householdSize < 12) {
+                  setState(() =>
+                      _draft = _draft.copyWith(householdSize: _draft.householdSize + 1));
+                  HapticFeedback.lightImpact();
+                }
+              },
+            ),
+          ],
+        ),
+        if (!isPro)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Unlock household size 1–12 with Pro',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textHint,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
-        ),
-        _buildCountButton(
-          Icons.add_rounded,
-          () {
-            if (_draft.householdSize < 12) {
-              setState(() =>
-                  _draft = _draft.copyWith(householdSize: _draft.householdSize + 1));
-              HapticFeedback.lightImpact();
-            }
-          },
-        ),
       ],
+    );
+  }
+
+  void _openPaywall() {
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            const PaywallScreen(triggerText: 'Household size is a Pro feature'),
+      ),
     );
   }
 

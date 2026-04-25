@@ -10,6 +10,7 @@ import { registerPlanWeekRoute } from './routes/plan-week.js';
 import { registerTranscribeRoute } from './routes/transcribe.js';
 import { registerParseUrlRoute } from './routes/parse-url.js';
 import { registerTrendingRoute } from './routes/trending.js';
+import { startTrendingScheduler } from './services/trending-scheduler.js';
 
 async function main(): Promise<void> {
   const app = Fastify({
@@ -92,6 +93,8 @@ async function main(): Promise<void> {
   try {
     await app.listen({ port: config.port, host: '0.0.0.0' });
     app.log.info(`Recimo backend listening on :${config.port}`);
+    // Kick off the weekly trending-recipe scheduler (runs Sundays 03:00 UTC).
+    startTrendingScheduler(app.log);
   } catch (err) {
     app.log.error({ err }, 'Failed to start server');
     process.exit(1);

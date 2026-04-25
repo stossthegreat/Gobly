@@ -37,8 +37,8 @@ class RevenueCatService extends ChangeNotifier {
   // PASTE YOUR REVENUECAT PUBLIC SDK KEYS HERE
   // (these are safe to ship in the client — they are the "public" keys)
   // ---------------------------------------------------------------------------
-  static const String _iosApiKey = 'appl_YOUR_IOS_PUBLIC_SDK_KEY';
-  static const String _androidApiKey = 'goog_YOUR_ANDROID_PUBLIC_SDK_KEY';
+  static const String _iosApiKey = 'appl_fljzJSfMZQLirgtUqXYRzsryylx';
+  static const String _androidApiKey = 'goog_tfxtzSplaJSUwSaIZndSlgcTXYV';
 
   /// The entitlement identifier configured in the RevenueCat dashboard.
   /// MUST match exactly (case-sensitive).
