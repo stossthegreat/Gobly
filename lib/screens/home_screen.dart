@@ -1886,13 +1886,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildQuickPickChips(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Row(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
             children: [
               Expanded(
                 child: Container(
@@ -1920,12 +1916,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 ? 'Transcribing...'
                                 : _listening
                                     ? 'Listening — tap stop when done'
-                                    : const [
-                                        'Say a dish or ask me to choose...',
-                                        'What should I eat tonight?',
-                                        'Find me something quick...',
-                                        'Comfort food for tonight...',
-                                      ][DateTime.now().minute % 4],
+                                    : 'Caesar salad',
                             hintStyle: TextStyle(
                               color: _transcribing
                                   ? const Color(0xFFFFB300)
@@ -2023,8 +2014,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
-            ),
-          ],
         ),
       ),
     );
@@ -2283,62 +2272,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // "plan my [adjective] week" / "plan me a [...] diet"
     if (RegExp(r'\bplan\b.*\b(week|diet)\b').hasMatch(q)) return true;
     return false;
-  }
-
-  Widget _buildQuickPickChips() {
-    final presets = <Map<String, String>>[
-      {'label': 'Surprise me',  'emoji': '🎲', 'prompt': 'Pick me a delicious recipe, you choose'},
-      {'label': 'Quick dinner', 'emoji': '⏱',  'prompt': 'A quick dinner under 30 minutes'},
-      {'label': 'High protein', 'emoji': '💪', 'prompt': 'A high protein dinner recipe'},
-      {'label': 'Comfort',      'emoji': '🍲', 'prompt': 'A cosy comfort food recipe'},
-      {'label': 'Vegetarian',   'emoji': '🥗', 'prompt': 'A delicious vegetarian dinner'},
-      {'label': 'Budget',       'emoji': '💵', 'prompt': 'A cheap, budget-friendly dinner'},
-    ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: presets.map((p) {
-          return Material(
-            color: AppColors.primarySoft,
-            borderRadius: BorderRadius.circular(20),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _searchController.clear();
-                _runAgentSearch(p['prompt']!);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(p['emoji']!, style: const TextStyle(fontSize: 14)),
-                    const SizedBox(width: 6),
-                    Text(
-                      p['label']!,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
   }
 
   void _runAgentSearch(String query) {
