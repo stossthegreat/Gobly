@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/recipe_result.dart';
 import '../models/week_plan.dart';
@@ -22,6 +23,7 @@ class RecipeSearchService {
     final userContext = UserProfileService.instance.profile.toAgentContext();
 
     final uri = Uri.parse('$_backendUrl/api/search');
+    debugPrint('🌐 POST $uri  query="$query"');
     try {
       final response = await http
           .post(
@@ -34,7 +36,9 @@ class RecipeSearchService {
           )
           .timeout(const Duration(seconds: 25));
 
+      debugPrint('🌐 ← ${response.statusCode} (${response.body.length} bytes)');
       if (response.statusCode != 200) {
+        debugPrint('🌐 ← body: ${response.body}');
         throw RecipeSearchException(
           statusCode: response.statusCode,
           message: _extractErrorMessage(response.body),
@@ -46,6 +50,7 @@ class RecipeSearchService {
     } on RecipeSearchException {
       rethrow;
     } catch (e) {
+      debugPrint('🌐 ✖ search error: $e');
       throw RecipeSearchException(
         statusCode: 0,
         message: 'Could not reach backend at $_backendUrl.\n${_friendlyNetworkError(e)}',

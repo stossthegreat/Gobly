@@ -1886,9 +1886,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildQuickPickChips(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Row(
             children: [
               Expanded(
                 child: Container(
@@ -2019,6 +2023,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
+            ),
+          ],
         ),
       ),
     );
@@ -2279,7 +2285,63 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return false;
   }
 
+  Widget _buildQuickPickChips() {
+    const presets = [
+      ('Surprise me',        '🎲', 'Pick me a delicious recipe — you choose'),
+      ('Quick dinner',       '⏱️', 'A quick dinner under 30 minutes'),
+      ('High protein',       '💪', 'A high-protein dinner recipe'),
+      ('Comfort food',       '🍲', 'A cosy comfort food recipe'),
+      ('Vegetarian',         '🥗', 'A delicious vegetarian dinner'),
+      ('Budget',             '💵', 'A cheap, budget-friendly dinner'),
+    ];
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+        itemCount: presets.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final (label, emoji, prompt) = presets[i];
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              _searchController.clear();
+              _runAgentSearch(prompt);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 13)),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _runAgentSearch(String query) {
+    debugPrint('🔎 _runAgentSearch: "$query"');
     HapticFeedback.mediumImpact();
     final usage = UsageService.instance;
 

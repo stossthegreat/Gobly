@@ -3,6 +3,11 @@ import type { TrendingRecipe } from '../data/trending.js';
 import { getTodaysTrending, TRENDING_RECIPES } from '../data/trending.js';
 import { fetchParallel } from '../services/fetcher.js';
 import { extractRecipeFromHtml } from '../services/jsonld.js';
+import {
+  getCachedTrending,
+  lastTrendingRefresh,
+  refreshTrending,
+} from '../services/trending-scheduler.js';
 
 // Admin-added recipes (in memory — survives until Railway redeploy)
 const adminRecipes: TrendingRecipe[] = [];
@@ -19,17 +24,34 @@ export async function registerTrendingRoute(app: FastifyInstance): Promise<void>
     const count = Math.min(Math.max(parseInt(countParam || '8', 10) || 8, 1), 20);
     const today = new Date().toISOString().slice(0, 10);
 
-    // Admin recipes first, then curated (deduplicated)
-    const adminTitles = new Set(adminRecipes.map((r) => r.title.toLowerCase()));
-    const curated = getTodaysTrending(count + 5).filter(
-      (r) => !adminTitles.has(r.title.toLowerCase()),
+    // Priority: admin overrides > weekly-scheduler cache > hard-coded curated.
+    const scheduled = getCachedTrending();
+    const takenTitles = new Set(
+      [...adminRecipes, ...scheduled].map((r) => r.title.toLowerCase()),
     );
-    const merged = [...adminRecipes, ...curated];
+    const fallback = getTodaysTrending(count + 5).filter(
+      (r) => !takenTitles.has(r.title.toLowerCase()),
+    );
+    const merged = [...adminRecipes, ...scheduled, ...fallback];
 
     return {
       recipes: merged.slice(0, count),
       date: today,
       adminCount: adminRecipes.length,
+      scheduledCount: scheduled.length,
+      lastRefresh: lastTrendingRefresh()?.toISOString() ?? null,
+    };
+  });
+
+  /**
+   * POST /api/trending/refresh
+   * Manually trigger the weekly scheduler (useful for testing / hot-fixes).
+   */
+  app.post('/api/trending/refresh', async () => {
+    const results = await refreshTrending(app.log);
+    return {
+      refreshed: results.length,
+      lastRefresh: lastTrendingRefresh()?.toISOString() ?? null,
     };
   });
 

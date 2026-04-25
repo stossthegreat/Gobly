@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/recipe_scaler.dart';
 
 /// Persists user-saved recipes across tabs and app restarts.
 class SavedRecipesService extends ChangeNotifier {
@@ -25,7 +26,16 @@ class SavedRecipesService extends ChangeNotifier {
       final jsonStr = prefs.getString(_storageKey);
       if (jsonStr != null && jsonStr.isNotEmpty) {
         final list = jsonDecode(jsonStr) as List<dynamic>;
-        _recipes = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        var migrated = false;
+        _recipes = list.map((e) {
+          final raw = Map<String, dynamic>.from(e as Map);
+          if (raw['_normalizedToOne'] == true) return raw;
+          migrated = true;
+          return normalizeRecipeToOneServing(raw);
+        }).toList();
+        if (migrated) {
+          await _save();
+        }
       }
     } catch (_) {
       _recipes = [];
@@ -35,14 +45,14 @@ class SavedRecipesService extends ChangeNotifier {
   }
 
   Future<void> add(Map<String, dynamic> recipe) async {
-    _recipes.insert(0, recipe);
+    _recipes.insert(0, normalizeRecipeToOneServing(recipe));
     notifyListeners();
     await _save();
   }
 
   Future<void> insertAt(int index, Map<String, dynamic> recipe) async {
     final i = index.clamp(0, _recipes.length);
-    _recipes.insert(i, recipe);
+    _recipes.insert(i, normalizeRecipeToOneServing(recipe));
     notifyListeners();
     await _save();
   }

@@ -5,6 +5,7 @@ import '../models/recipe_result.dart';
 import '../services/saved_recipes_service.dart';
 import '../services/share_service.dart';
 import '../services/usage_service.dart';
+import '../services/user_profile_service.dart';
 import '../screens/paywall_screen.dart';
 
 /// Shows a full-screen recipe detail bottom sheet with hero image,
@@ -44,7 +45,12 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
   void initState() {
     super.initState();
     _originalServings = recipe.servings ?? 4;
-    _servings = _originalServings;
+    // Default the visible servings to the user's household size (Pro picks 1–12;
+    // free users are clamped to 1 in UserProfileService). The +/- buttons can
+    // still override ad-hoc — Pro-gated below.
+    final household = UserProfileService.instance.profile.householdSize;
+    final target = UsageService.instance.isPro ? household : 1;
+    _servings = target.clamp(1, 20);
   }
 
   double get _scaleFactor =>
