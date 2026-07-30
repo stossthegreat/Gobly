@@ -13,7 +13,7 @@ void showWeekPlanPromptSheet(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const PaywallScreen(
-          triggerText: 'You\'ve used your free week plan',
+          triggerText: 'Unlock the AI week planner with Pro',
         ),
       ),
     );

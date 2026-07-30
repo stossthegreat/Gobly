@@ -1,16 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Tracks free-tier usage limits and gates premium features.
+/// Tracks usage and gates premium features.
 ///
-/// Free tier:
-/// - 3 AI agent searches total
-/// - 1 AI week plan total
-/// - 1 cookbook
-/// - Manual everything: unlimited
+/// Free tier (no subscription):
+/// - AI recipe search: Pro only (locked)
+/// - AI week plan: Pro only (locked)
+/// - Pull recipes from any website (Search Google / Paste a URL): Pro only
 /// - Ingredient auto-scale: Pro only
+/// - Write a recipe manually: unlimited & free
 ///
-/// After limits are exhausted, meal planner locks to manual-only.
+/// Everything powered by AI or web search is locked behind Pro. Only the
+/// fully-manual "Write recipe" flow is available without a subscription.
 class UsageService extends ChangeNotifier {
   UsageService._();
   static final UsageService _instance = UsageService._();
@@ -46,13 +47,15 @@ class UsageService extends ChangeNotifier {
   int get searchesRemaining => isPro ? 999 : (maxFreeSearches - _searchCount).clamp(0, maxFreeSearches);
   int get plansRemaining => isPro ? 999 : (maxFreePlans - _planCount).clamp(0, maxFreePlans);
 
-  bool get canSearch => isPro || _searchCount < maxFreeSearches;
-  bool get canPlanWeek => isPro || _planCount < maxFreePlans;
+  // AI recipe search & web-search recipe pulls are Pro-only — no free trial.
+  bool get canSearch => isPro;
+  // AI week planner is Pro-only — no free trial.
+  bool get canPlanWeek => isPro;
   bool get canAutoScale => isPro;
   bool get canCreateCookbook => isPro; // beyond the 1st (checked by caller)
 
-  /// True if user has exhausted AI and should see planner in manual-only mode
-  bool get aiExhausted => !isPro && _searchCount >= maxFreeSearches && _planCount >= maxFreePlans;
+  /// True whenever the user is not Pro — all AI features are locked.
+  bool get aiExhausted => !isPro;
 
   /// True if we should show the rating popup (after 2nd total AI use, not yet rated)
   bool get shouldShowRating => _totalAiUses >= 2 && !_hasRated;

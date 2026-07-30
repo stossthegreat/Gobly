@@ -437,7 +437,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 4),
               Text(
-                'Three ways to capture a recipe manually',
+                'Write your own free, or unlock web + AI capture',
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
@@ -446,8 +446,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 color: const Color(0xFF4285F4),
                 title: 'Search Google',
                 subtitle: 'Open google.com in your browser',
+                locked: !UsageService.instance.isPro,
                 onTap: () {
                   Navigator.pop(context);
+                  if (!UsageService.instance.isPro) {
+                    _showPaywall('Unlock web recipe capture with Pro');
+                    return;
+                  }
                   _showGoogleSearchSheet();
                 },
               ),
@@ -468,8 +473,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 color: const Color(0xFFFF6B35),
                 title: 'Paste a URL',
                 subtitle: 'Save a link to any recipe',
+                locked: !UsageService.instance.isPro,
                 onTap: () {
                   Navigator.pop(context);
+                  if (!UsageService.instance.isPro) {
+                    _showPaywall('Unlock URL recipe capture with Pro');
+                    return;
+                  }
                   _showPasteLinkSheet();
                 },
               ),
@@ -486,6 +496,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    bool locked = false,
   }) {
     return Material(
       color: Colors.transparent,
@@ -515,13 +526,52 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (locked) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.lock_rounded,
+                                  size: 10,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'PRO',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -535,7 +585,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
               Icon(
-                Icons.chevron_right_rounded,
+                locked ? Icons.lock_rounded : Icons.chevron_right_rounded,
                 color: AppColors.textHint,
                 size: 20,
               ),
@@ -1888,134 +1938,202 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppColors.border, width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 16),
-                      Icon(
-                        Icons.auto_awesome_rounded,
-                        color: AppColors.primary,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _searchFocus,
-                          decoration: InputDecoration(
-                            hintText: _transcribing
-                                ? 'Transcribing...'
-                                : _listening
-                                    ? 'Listening — tap stop when done'
-                                    : 'Caesar salad',
-                            hintStyle: TextStyle(
-                              color: _transcribing
-                                  ? const Color(0xFFFFB300)
-                                  : _listening
-                                      ? const Color(0xFFE53935)
-                                      : AppColors.textHint,
-                              fontSize: 14,
-                              fontWeight: (_listening || _transcribing)
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                            isDense: true,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textPrimary,
-                          ),
-                          onSubmitted: (value) {
-                            if (value.trim().isNotEmpty) {
-                              _runAgentSearch(value.trim());
-                              _searchController.clear();
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              AnimatedBuilder(
-                animation: _micPulseController,
-                builder: (context, _) {
-                  final pulse = _listening ? _micPulseController.value : 0.0;
-                  // Three states: idle (green mic), listening (red stop), transcribing (amber spinner)
-                  final colors = _transcribing
-                      ? const [Color(0xFFFFB300), Color(0xFFFFCA28)]
-                      : _listening
-                          ? const [Color(0xFFE53935), Color(0xFFEF5350)]
-                          : const [Color(0xFF2E7D32), Color(0xFF43A047)];
-                  final shadowColor = _transcribing
-                      ? const Color(0xFFFFB300)
-                      : _listening
-                          ? const Color(0xFFE53935)
-                          : AppColors.primary;
-                  return Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: colors,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: shadowColor.withValues(alpha: 0.3 + pulse * 0.3),
-                          blurRadius: 12 + pulse * 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _transcribing ? null : _toggleListening,
-                        borderRadius: BorderRadius.circular(24),
-                        child: Center(
-                          child: _transcribing
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    valueColor:
-                                        AlwaysStoppedAnimation(Colors.white),
-                                  ),
-                                )
-                              : Icon(
-                                  _listening
-                                      ? Icons.stop_rounded
-                                      : Icons.mic_rounded,
-                                  color: Colors.white,
-                                  size: 22,
-                                ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+          // Rebuilds automatically when Pro status changes (e.g. after a
+          // purchase) so the lock disappears the moment the user unlocks.
+          child: ListenableBuilder(
+            listenable: UsageService.instance,
+            builder: (context, _) {
+              final locked = !UsageService.instance.isPro;
+              return Row(
+                children: [
+                  Expanded(child: _buildSearchField(locked)),
+                  const SizedBox(width: 10),
+                  _buildMicButton(locked),
+                ],
+              );
+            },
           ),
         ),
       ),
+    );
+  }
+
+  /// The AI recipe search field. When [locked] (non-Pro), it becomes a single
+  /// tap target that opens the paywall instead of an editable field.
+  Widget _buildSearchField(bool locked) {
+    if (locked) {
+      return GestureDetector(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          _showPaywall('Unlock AI recipe search with Pro');
+        },
+        child: Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.border, width: 1),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 16),
+              Icon(
+                Icons.lock_rounded,
+                color: AppColors.textHint,
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Search any recipe with AI',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textHint,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+        ),
+      );
+    }
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Icon(
+            Icons.auto_awesome_rounded,
+            color: AppColors.primary,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocus,
+              decoration: InputDecoration(
+                hintText: _transcribing
+                    ? 'Transcribing...'
+                    : _listening
+                        ? 'Listening — tap stop when done'
+                        : 'Caesar salad',
+                hintStyle: TextStyle(
+                  color: _transcribing
+                      ? const Color(0xFFFFB300)
+                      : _listening
+                          ? const Color(0xFFE53935)
+                          : AppColors.textHint,
+                  fontSize: 14,
+                  fontWeight: (_listening || _transcribing)
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                isDense: true,
+              ),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textPrimary,
+              ),
+              onSubmitted: (value) {
+                if (value.trim().isNotEmpty) {
+                  _runAgentSearch(value.trim());
+                  _searchController.clear();
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  /// The voice-search button. When [locked] (non-Pro), tapping it opens the
+  /// paywall and the mic icon is replaced with a lock.
+  Widget _buildMicButton(bool locked) {
+    return AnimatedBuilder(
+      animation: _micPulseController,
+      builder: (context, _) {
+        final pulse = _listening ? _micPulseController.value : 0.0;
+        // Three states: idle (green mic), listening (red stop), transcribing (amber spinner)
+        final colors = _transcribing
+            ? const [Color(0xFFFFB300), Color(0xFFFFCA28)]
+            : _listening
+                ? const [Color(0xFFE53935), Color(0xFFEF5350)]
+                : const [Color(0xFF2E7D32), Color(0xFF43A047)];
+        final shadowColor = _transcribing
+            ? const Color(0xFFFFB300)
+            : _listening
+                ? const Color(0xFFE53935)
+                : AppColors.primary;
+        return Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: shadowColor.withValues(alpha: 0.3 + pulse * 0.3),
+                blurRadius: 12 + pulse * 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: locked
+                  ? () {
+                      HapticFeedback.mediumImpact();
+                      _showPaywall('Unlock voice recipe search with Pro');
+                    }
+                  : (_transcribing ? null : _toggleListening),
+              borderRadius: BorderRadius.circular(24),
+              child: Center(
+                child: locked
+                    ? const Icon(
+                        Icons.lock_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      )
+                    : _transcribing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor:
+                                  AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : Icon(
+                            _listening
+                                ? Icons.stop_rounded
+                                : Icons.mic_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -2281,13 +2399,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     final isWeekPlan = _looksLikeWeekPlan(query);
 
-    // Check limits — show paywall if exhausted
+    // AI features are Pro-only — show the paywall for non-subscribers.
     if (isWeekPlan && !usage.canPlanWeek) {
-      _showPaywall('You\'ve used your free week plan');
+      _showPaywall('Unlock the AI week planner with Pro');
       return;
     }
     if (!isWeekPlan && !usage.canSearch) {
-      _showPaywall('You\'ve used ${UsageService.maxFreeSearches}/${UsageService.maxFreeSearches} free AI searches');
+      _showPaywall('Unlock AI recipe search with Pro');
       return;
     }
 
