@@ -13,6 +13,7 @@ class RecipeCard extends StatelessWidget {
   final double rating;
   final String category;
   final VoidCallback? onTap;
+  final bool locked; // shows a Pro lock badge (tapping still fires onTap)
 
   const RecipeCard({
     super.key,
@@ -24,6 +25,7 @@ class RecipeCard extends StatelessWidget {
     required this.rating,
     required this.category,
     this.onTap,
+    this.locked = false,
   });
 
   @override
@@ -274,6 +276,45 @@ class RecipeCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Pro lock — a small frosted badge bottom-right
+                  if (locked)
+                    Positioned(
+                      bottom: 10,
+                      right: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(
+                              Icons.lock_rounded,
+                              size: 10,
+                              color: Colors.white,
+                            ),
+                            SizedBox(width: 3),
+                            Text(
+                              'PRO',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

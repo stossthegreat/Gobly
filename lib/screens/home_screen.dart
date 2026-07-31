@@ -15,7 +15,7 @@ import '../services/usage_service.dart';
 import '../services/recipe_search_service.dart';
 import '../widgets/rating_dialog.dart';
 import 'settings_screen.dart';
-import 'paywall_screen.dart';
+import 'trial_intro_screen.dart';
 import 'create_recipe_screen.dart';
 import 'search_results_screen.dart';
 import 'week_plan_result_screen.dart';
@@ -1521,31 +1521,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildTrendingCards() {
     // Show first 5 + a "See more" card at the end
     final visibleCount = _trendingRecipes.length > 5 ? 5 : _trendingRecipes.length;
-    return SizedBox(
-      height: 210,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: visibleCount + (_trendingRecipes.length > 5 ? 1 : 0),
-        itemBuilder: (context, index) {
-          // Last item = "See more" card
-          if (index == visibleCount) {
-            return _buildSeeMoreCard();
-          }
-          final recipe = _trendingRecipes[index];
-          return RecipeCard(
-            title: recipe['title'],
-            source: recipe['source'],
-            time: recipe['time'],
-            imageEmoji: recipe['emoji'],
-            imageUrl: recipe['image'] as String?,
-            rating: recipe['rating'],
-            category: recipe['category'],
-            onTap: () => _runAgentSearch(recipe['title']),
-          );
-        },
-      ),
+    // Rebuilds when Pro status changes so the lock badges clear after purchase.
+    return ListenableBuilder(
+      listenable: UsageService.instance,
+      builder: (context, _) {
+        final locked = !UsageService.instance.isPro;
+        return SizedBox(
+          height: 210,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: visibleCount + (_trendingRecipes.length > 5 ? 1 : 0),
+            itemBuilder: (context, index) {
+              // Last item = "See more" card
+              if (index == visibleCount) {
+                return _buildSeeMoreCard();
+              }
+              final recipe = _trendingRecipes[index];
+              return RecipeCard(
+                title: recipe['title'],
+                source: recipe['source'],
+                time: recipe['time'],
+                imageEmoji: recipe['emoji'],
+                imageUrl: recipe['image'] as String?,
+                rating: recipe['rating'],
+                category: recipe['category'],
+                locked: locked,
+                // Tapping a trending recipe fires an AI/serper search, so it
+                // funnels into the paywall for non-Pro users via _runAgentSearch.
+                onTap: () => _runAgentSearch(recipe['title']),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -2450,26 +2460,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _showPaywall(String triggerText) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => PaywallScreen(triggerText: triggerText),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.1),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
+    // Route through the two-screen free-trial funnel → paywall.
+    showPaywallFlow(context, triggerText: triggerText);
   }
 
   // Kept for graceful fallback if needed — not currently used

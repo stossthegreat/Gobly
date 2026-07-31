@@ -3,19 +3,16 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../services/usage_service.dart';
 import '../screens/week_plan_result_screen.dart';
-import '../screens/paywall_screen.dart';
+import '../screens/trial_intro_screen.dart';
 
 /// Shows the "Plan my week" prompt sheet. On submit, navigates to
 /// WeekPlanResultScreen which fires the backend and saves the plan.
 /// If the user has exhausted their free plan, shows the paywall instead.
 void showWeekPlanPromptSheet(BuildContext context) {
   if (!UsageService.instance.canPlanWeek) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const PaywallScreen(
-          triggerText: 'Unlock the AI week planner with Pro',
-        ),
-      ),
+    showPaywallFlow(
+      context,
+      triggerText: 'Unlock the AI week planner with Pro',
     );
     return;
   }

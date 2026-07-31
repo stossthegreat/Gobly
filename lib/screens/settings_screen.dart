@@ -9,7 +9,7 @@ import '../services/meal_plan_service.dart';
 import '../services/saved_recipes_service.dart';
 import '../services/cookbooks_service.dart';
 import '../services/usage_service.dart';
-import 'paywall_screen.dart';
+import 'trial_intro_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -1003,12 +1003,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _openPaywall() {
     HapticFeedback.mediumImpact();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            const PaywallScreen(triggerText: 'Household size is a Pro feature'),
-      ),
-    );
+    showPaywallFlow(context, triggerText: 'Household size is a Pro feature');
   }
 
   Widget _buildCountButton(IconData icon, VoidCallback onTap) {
