@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
@@ -5,6 +6,7 @@ import '../models/cookbook.dart';
 import '../models/recipe_result.dart';
 import '../services/cookbooks_service.dart';
 import '../services/saved_recipes_service.dart';
+import '../services/local_image_store.dart';
 import '../widgets/recipe_detail_sheet.dart';
 
 /// Single cookbook detail screen — shows the recipes in this cookbook,
@@ -301,11 +303,24 @@ class _CookbookScreenState extends State<CookbookScreen> {
 
   Widget _buildThumbnail(Map<String, dynamic> recipe) {
     final image = (recipe['image'] ?? '').toString();
-    if (image.isNotEmpty) {
+    if (image.startsWith('http')) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Image.network(
           image,
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _emojiThumb(recipe),
+        ),
+      );
+    }
+    final localPath = LocalImageStore.resolveFile(image);
+    if (localPath != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(
+          File(localPath),
           width: 56,
           height: 56,
           fit: BoxFit.cover,

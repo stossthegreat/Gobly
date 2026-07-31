@@ -12,6 +12,7 @@ import '../services/transcribe_service.dart';
 import '../services/cookbooks_service.dart';
 import '../services/share_service.dart';
 import '../services/usage_service.dart';
+import '../services/local_image_store.dart';
 import '../services/recipe_search_service.dart';
 import '../widgets/rating_dialog.dart';
 import 'settings_screen.dart';
@@ -1713,14 +1714,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       );
     }
-    if (image.startsWith('/') && File(image).existsSync()) {
+    final localPath = LocalImageStore.resolveFile(image);
+    if (localPath != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Image.file(
-          File(image),
+          File(localPath),
           width: double.infinity,
           height: 200,
           fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildEmojiHero(recipe),
         ),
       );
     }
@@ -1764,11 +1767,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       );
     }
-    if (image.startsWith('/') && File(image).existsSync()) {
+    final localPath = LocalImageStore.resolveFile(image);
+    if (localPath != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: Image.file(
-          File(image),
+          File(localPath),
           width: 56,
           height: 56,
           fit: BoxFit.cover,
