@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import '../theme/app_theme.dart';
 import '../services/saved_recipes_service.dart';
+import '../services/local_image_store.dart';
 
 class CreateRecipeScreen extends StatefulWidget {
   /// Optional prefill values (e.g. from a pasted link or search)
@@ -33,7 +33,9 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
   final _stepFocus = FocusNode();
 
   String _selectedEmoji = '\u{1F372}';
-  String? _photoPath; // local file path if user added a photo
+  // Container-safe marker (`local://<file>`) for the user's photo, if any.
+  // Stored verbatim on the recipe so it survives app updates/reinstalls.
+  String? _photoPath;
   final List<String> _ingredients = [];
   final List<String> _steps = [];
   final _imagePicker = ImagePicker();
@@ -118,12 +120,11 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
         imageQuality: 85,
       );
       if (picked == null) return;
-      // Copy to app's persistent directory so it survives across sessions
-      final appDir = await getApplicationDocumentsDirectory();
-      final fileName =
-          'recipe_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final savedFile = await File(picked.path).copy('${appDir.path}/$fileName');
-      setState(() => _photoPath = savedFile.path);
+      // Copy into the Documents dir and store a container-independent marker
+      // so the photo survives app updates (which change the container path).
+      final marker = await LocalImageStore.savePickedFile(picked.path);
+      if (marker == null) return;
+      setState(() => _photoPath = marker);
       HapticFeedback.lightImpact();
     } catch (_) {}
   }
@@ -357,7 +358,8 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
   }
 
   Widget _buildEmojiPicker() {
-    final hasPhoto = _photoPath != null && File(_photoPath!).existsSync();
+    final resolvedPhoto = LocalImageStore.resolveFile(_photoPath);
+    final hasPhoto = resolvedPhoto != null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -386,7 +388,7 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(24),
                       child: Image.file(
-                        File(_photoPath!),
+                        File(resolvedPhoto),
                         width: 140,
                         height: 140,
                         fit: BoxFit.cover,

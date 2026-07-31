@@ -15,6 +15,7 @@ import 'services/grocery_service.dart';
 import 'services/usage_service.dart';
 import 'services/analytics_service.dart';
 import 'services/revenuecat_service.dart';
+import 'services/local_image_store.dart';
 
 void main() async {
   // Catch ALL flutter errors — never show red screen to users
@@ -54,6 +55,8 @@ void main() async {
       CookbooksService.instance.load(),
       GroceryService.instance.load(),
       UsageService.instance.load(),
+      // Cache the Documents dir so recipe photos resolve container-safely.
+      LocalImageStore.init(),
       OnboardingScreen.hasBeenSeen().then((v) => onboardingSeen = v),
     ]);
     debugPrint('✅ All services loaded');

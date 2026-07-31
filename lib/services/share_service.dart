@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/recipe_result.dart';
 import '../theme/app_theme.dart';
 import '../widgets/share_recipe_card.dart';
+import 'local_image_store.dart';
 
 /// Shows a share preview bottom sheet with the branded card,
 /// then captures and shares it when the user taps "Share".
@@ -44,12 +45,10 @@ class ShareService {
   ) async {
     final card = ShareRecipeCard(
       title: recipe['title'] as String? ?? '',
-      imageUrl: (recipe['image'] as String?)?.startsWith('http') == true
+      imageUrl: LocalImageStore.isNetwork(recipe['image'] as String?)
           ? recipe['image'] as String
           : null,
-      localImagePath: (recipe['image'] as String?)?.startsWith('/') == true
-          ? recipe['image'] as String
-          : null,
+      localImagePath: LocalImageStore.resolveFile(recipe['image'] as String?),
       source: recipe['source'] as String? ?? '',
       rating: (recipe['rating'] as num?)?.toDouble() ?? 0.0,
       time: recipe['time'] as String? ?? '',
@@ -78,12 +77,10 @@ class ShareService {
     final first = recipes.first;
     final card = ShareRecipeCard(
       title: first['title'] as String? ?? '',
-      imageUrl: (first['image'] as String?)?.startsWith('http') == true
+      imageUrl: LocalImageStore.isNetwork(first['image'] as String?)
           ? first['image'] as String
           : null,
-      localImagePath: (first['image'] as String?)?.startsWith('/') == true
-          ? first['image'] as String
-          : null,
+      localImagePath: LocalImageStore.resolveFile(first['image'] as String?),
       source: first['source'] as String? ?? '',
       rating: (first['rating'] as num?)?.toDouble() ?? 0.0,
       time: first['time'] as String? ?? '',

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
@@ -6,6 +7,7 @@ import '../services/saved_recipes_service.dart';
 import '../services/share_service.dart';
 import '../services/usage_service.dart';
 import '../services/user_profile_service.dart';
+import '../services/local_image_store.dart';
 import '../screens/trial_intro_screen.dart';
 
 /// Shows a full-screen recipe detail bottom sheet with hero image,
@@ -130,39 +132,13 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  // Hero image
+                  // Hero image — network (AI) or local file (manual photo)
                   if (recipe.image.isNotEmpty)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(18),
                       child: AspectRatio(
                         aspectRatio: 16 / 10,
-                        child: Image.network(
-                          recipe.image,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (ctx, child, progress) {
-                            if (progress == null) return child;
-                            return Container(
-                              color: AppColors.primarySoft,
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor:
-                                      AlwaysStoppedAnimation(AppColors.primary),
-                                ),
-                              ),
-                            );
-                          },
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppColors.primarySoft,
-                            child: const Center(
-                              child: Icon(
-                                Icons.restaurant_rounded,
-                                color: AppColors.primary,
-                                size: 48,
-                              ),
-                            ),
-                          ),
-                        ),
+                        child: _buildHeroImage(recipe.image),
                       ),
                     )
                   else
@@ -515,6 +491,48 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
         ],
       ),
     );
+  }
+
+  /// Hero image that supports both remote (AI) URLs and local (manual) photos.
+  Widget _buildHeroImage(String image) {
+    Widget fallback() => Container(
+          color: AppColors.primarySoft,
+          child: const Center(
+            child: Icon(
+              Icons.restaurant_rounded,
+              color: AppColors.primary,
+              size: 48,
+            ),
+          ),
+        );
+    if (LocalImageStore.isNetwork(image)) {
+      return Image.network(
+        image,
+        fit: BoxFit.cover,
+        loadingBuilder: (ctx, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            color: AppColors.primarySoft,
+            child: const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(AppColors.primary),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) => fallback(),
+      );
+    }
+    final localPath = LocalImageStore.resolveFile(image);
+    if (localPath != null) {
+      return Image.file(
+        File(localPath),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback(),
+      );
+    }
+    return fallback();
   }
 
   Widget _buildServingsScaler() {

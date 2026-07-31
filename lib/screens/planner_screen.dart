@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../services/local_image_store.dart';
 import '../models/planned_meal.dart';
 import '../models/recipe_result.dart';
 import '../services/meal_plan_service.dart';
@@ -556,40 +558,46 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildRecipeThumbnail(String imageUrl, Color tintColor) {
-    if (imageUrl.isEmpty) {
-      return Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: tintColor.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          Icons.restaurant_rounded,
-          size: 24,
-          color: tintColor,
-        ),
-      );
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        imageUrl,
-        width: 56,
-        height: 56,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
+    Widget fallback() => Container(
           width: 56,
           height: 56,
-          color: tintColor.withValues(alpha: 0.12),
+          decoration: BoxDecoration(
+            color: tintColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Icon(
             Icons.restaurant_rounded,
             size: 24,
             color: tintColor,
           ),
+        );
+    if (imageUrl.isEmpty) return fallback();
+    if (imageUrl.startsWith('http')) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          imageUrl,
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback(),
         ),
-      ),
-    );
+      );
+    }
+    final localPath = LocalImageStore.resolveFile(imageUrl);
+    if (localPath != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(
+          File(localPath),
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback(),
+        ),
+      );
+    }
+    return fallback();
   }
 
   void _showAddMealSheet(String mealKey, String mealType) {
@@ -980,11 +988,24 @@ class _AddMealSheetState extends State<_AddMealSheet>
 
   Widget _savedThumb(Map<String, dynamic> recipe) {
     final image = (recipe['image'] ?? '').toString();
-    if (image.isNotEmpty) {
+    if (image.startsWith('http')) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Image.network(
           image,
+          width: 48,
+          height: 48,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _emojiThumb(recipe),
+        ),
+      );
+    }
+    final localPath = LocalImageStore.resolveFile(image);
+    if (localPath != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.file(
+          File(localPath),
           width: 48,
           height: 48,
           fit: BoxFit.cover,
