@@ -6,7 +6,7 @@ import '../services/saved_recipes_service.dart';
 import '../services/share_service.dart';
 import '../services/usage_service.dart';
 import '../services/user_profile_service.dart';
-import '../screens/paywall_screen.dart';
+import '../screens/trial_intro_screen.dart';
 
 /// Shows a full-screen recipe detail bottom sheet with hero image,
 /// ingredients, numbered instructions, and Save / Close actions.
@@ -523,12 +523,9 @@ class _RecipeDetailSheetState extends State<_RecipeDetailSheet> {
       onTap: isPro
           ? null
           : () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const PaywallScreen(
-                    triggerText: 'Ingredient scaling is a Pro feature',
-                  ),
-                ),
+              showPaywallFlow(
+                context,
+                triggerText: 'Ingredient scaling is a Pro feature',
               );
             },
       child: Container(

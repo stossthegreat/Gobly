@@ -204,10 +204,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   Expanded(
                     child: _priceCard(
                       label: 'Annual',
-                      price: '\$29.99',
-                      sub: '/year',
+                      price: '\$2.50',
+                      sub: '/mo',
                       badge: 'SAVE 50%',
-                      perDay: '7-day free trial',
+                      perDay: 'Billed \$29.99/year',
                       isSelected: _annual,
                       onTap: () => setState(() => _annual = true),
                     ),
